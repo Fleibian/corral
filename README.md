@@ -20,6 +20,19 @@ corral help
 actually have, so nothing needs remembering or retyping. `corral <TAB>` lists
 the commands, and after a project name it offers that command's switches.
 
+**Forgot the name?** Run `corral open` or `corral rm` with no project and you
+get the list instead of a prompt:
+
+```
+Name  State   DiskGB
+----  -----   ------
+alpha stopped   3.26
+beta  running   3.26
+
+  Which one?   corral open <name>
+  Tab completes the name.
+```
+
 Short forms work where you'd guess: `create`/`n` for `new`, `start`/`o` for
 `open`, `list`/`l` for `ls`, `remove`/`delete` for `rm`, `rebuild` for `build`.
 Bare `corral` lists your projects.

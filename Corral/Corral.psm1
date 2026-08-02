@@ -175,6 +175,34 @@ function Invoke-Corral {
 
     if ($key -eq 'help') { Show-CorralHelp; return }
 
+    # A command that needs an existing project, with no project given. Without
+    # this the mandatory parameter on the underlying script drops you into a
+    # bare "Supply values for the following parameters:" prompt - which is no
+    # help at all when the reason you stopped is that you forgot the name.
+    if (-not $Name -and $key -in $script:TakesExistingName) {
+        $projects = @(Get-CorralProjectName)
+        if ($projects.Count -eq 0) {
+            Write-Host ''
+            Write-Host '  No projects yet. Create one with: corral new <name>' -ForegroundColor Yellow
+            Write-Host ''
+            return
+        }
+        & (Join-Path $script:Root 'Get-Project.ps1') -NoHint
+        Write-Host ("  Which one?   corral {0} <name>" -f $key) -ForegroundColor DarkGray
+        Write-Host  '  Tab completes the name.' -ForegroundColor DarkGray
+        Write-Host ''
+        return
+    }
+
+    # 'new' names a project that does not exist yet, so there is nothing to
+    # list - just say what the command wants.
+    if (-not $Name -and $key -eq 'new') {
+        Write-Host ''
+        Write-Host '  corral new <name>   - name the project you want to create' -ForegroundColor Yellow
+        Write-Host ''
+        return
+    }
+
     $target = Join-Path $script:Root $script:Commands[$key].Script
     if (-not (Test-Path $target)) {
         throw "Missing script: $target. The Corral module expects to sit alongside it in the workspace root."

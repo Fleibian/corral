@@ -18,7 +18,11 @@
 #>
 [CmdletBinding()]
 param(
-    [switch]$Detailed
+    [switch]$Detailed,
+
+    # Suppress the trailing "Open with: ..." line, for callers that want to
+    # print their own contextual hint instead.
+    [switch]$NoHint
 )
 
 $ErrorActionPreference = 'Stop'
@@ -84,5 +88,7 @@ $table = $rows | Format-Table -AutoSize | Out-String
 
 Write-Host $table.TrimEnd()
 Write-Host ''
-Write-Host "  Open with: corral open <name>" -ForegroundColor DarkGray
-Write-Host ''
+if (-not $NoHint) {
+    Write-Host "  Open with: corral open <name>" -ForegroundColor DarkGray
+    Write-Host ''
+}
