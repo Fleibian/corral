@@ -85,8 +85,47 @@ sudo find /mnt -mindepth 1 -maxdepth 1 -type d -empty \
 cd ~/workspace
 if [ ! -d .git ]; then
     git init -q
-    printf 'node_modules/\n.expo/\ndist/\nbuild/\n*.log\n.DS_Store\n' > .gitignore
+    # Skill payloads are installed artifacts, like node_modules - the base
+    # image provides them, so they do not belong in the project's history.
+    # skills-lock.json is the manifest and is deliberately left tracked.
+    cat > .gitignore <<'GITIGNORE'
+node_modules/
+.expo/
+dist/
+build/
+*.log
+.DS_Store
+
+# Agent skill payloads. The skills CLI writes a copy into every targeted
+# agent's directory as well as the shared .agents/ one, so all of them are
+# ignored. skills-lock.json stays tracked - it is the manifest, and these are
+# the artifacts, the same split as package-lock.json versus node_modules.
+.agents/
+.claude/skills/
+.codex/skills/
+.pi/skills/
+GITIGNORE
     cp /etc/agentdev/project-AGENTS.md AGENTS.md 2>/dev/null || true
+
+    # Project-scoped skills. These cannot live in the base image: the skills
+    # CLI resolves "project" from the working directory, and ~/workspace is a
+    # bare directory at build time, so the command exits 0 having installed
+    # nothing. It has to run here, once the repo exists.
+    #
+    # One invocation per agent. Passing several -a flags at once reports
+    # success but reproducibly installs for only some of them - in project
+    # scope 'pi' is silently dropped, and no .pi/skills directory appears.
+    # Installing one agent at a time is slower but actually deterministic.
+    # (The identifier is 'claude-code', not 'claude'; a comma-separated list is
+    # rejected outright; and without -y the CLI opens a picker and hangs.)
+    if command -v npx >/dev/null 2>&1; then
+        for agent in claude-code codex pi; do
+            npx --yes skills add kunchenguid/lavish-axi --skill lavish \
+                -a "$agent" -y >>/tmp/lavish.log 2>&1 \
+                || echo "WARN: project skill 'lavish' failed for $agent; see /tmp/lavish.log"
+        done
+    fi
+
     git add -A
     git -c user.name='Agent Workspace' -c user.email='noreply@localhost' \
         commit -q -m 'Initial commit: project scaffold'

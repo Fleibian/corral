@@ -164,6 +164,40 @@ if ! command -v gh >/dev/null 2>&1; then
 fi
 ok "$(gh --version 2>/dev/null | head -1 || echo 'gh install failed')"
 
+log "Agent skills"
+# Installed into the image so every project has them from the moment it opens,
+# with no network round-trip at project creation.
+#
+# Two things the CLI is fussy about, both learned the hard way:
+#   - agent names must be repeated as separate -a flags; a comma-separated
+#     list is rejected outright as "Invalid agents"
+#   - the identifier is 'claude-code', not 'claude'
+# Without -y it drops into an interactive multi-select and hangs a build.
+su - "$DEV_USER" -c '
+    export NVM_DIR="$HOME/.nvm"
+    . "$NVM_DIR/nvm.sh"
+    AGENTS="-a claude-code -a codex -a pi"
+
+    add_skill() {                 # repo, skill
+        if npx --yes skills add "$1" --skill "$2" -g $AGENTS -y >/tmp/skill-$2.log 2>&1; then
+            echo "    OK   $2"
+        else
+            echo "    WARN $2 failed:"
+            tail -3 /tmp/skill-$2.log | sed "s/^/         /"
+        fi
+    }
+
+    add_skill kunchenguid/chrome-devtools-axi chrome-devtools-axi
+    add_skill kunchenguid/gh-axi              gh-axi
+'
+rm -f /tmp/skill-*.log
+
+# Note: only global (-g) skills belong here. A project-scoped skill cannot be
+# baked into the image - the CLI resolves "project" from the working directory,
+# and ~/workspace is a bare directory at build time with no project to install
+# into, so the command exits 0 having done nothing. New-Project.ps1 installs
+# those after it has run git init.
+
 log "Session launcher"
 # Start-Project invokes this by name. Keeping the session logic in a script
 # means the launch command is a single argument with no spaces, quotes or
