@@ -21,6 +21,9 @@ C:\AgentDev\Get-Project.ps1
 
 # Destroy it - backs up git history to Windows first
 C:\AgentDev\Remove-Project.ps1 invoice-service
+
+# Destroy a throwaway - leaves nothing behind
+C:\AgentDev\Remove-Project.ps1 scratch-test -NoBackup
 ```
 
 `Start-Project` opens WezTerm on the Windows host attached to the instance,
@@ -164,11 +167,46 @@ React Native setup.
 The consequence is that **the instance holds the only copy of your project**.
 Mitigations:
 
-- `Remove-Project.ps1` always writes a `git bundle` of the complete repository
-  to `Projects\<name>-<timestamp>.bundle` before destroying anything, and
-  refuses to proceed if that backup cannot be produced.
+- `Remove-Project.ps1` writes a `git bundle` of the complete repository to
+  `Projects\<name>-<timestamp>.bundle` before destroying anything, and refuses
+  to proceed if that backup cannot be produced. Opt out per project with
+  `-NoBackup` - see below.
 - Browse from Windows any time at `\\wsl.localhost\agentdev-<name>\home\dev\workspace`.
 - Open in VS Code with `code --remote wsl+agentdev-<name> /home/dev/workspace`.
+
+### Destroying a project
+
+```powershell
+# Default: bundle the history to Windows, then destroy
+C:\AgentDev\Remove-Project.ps1 invoice-service
+
+# Throwaway: destroy it and leave nothing behind
+C:\AgentDev\Remove-Project.ps1 scratch-test -NoBackup
+
+# Same, without the confirmation prompt
+C:\AgentDev\Remove-Project.ps1 scratch-test -NoBackup -Force
+```
+
+Not every project is worth a bundle. Scratch and test instances would just
+accumulate files in `Projects\` that you will never restore, so `-NoBackup`
+destroys the instance and writes nothing to Windows at all.
+
+Because that is irreversible, it tells you what you are about to lose and asks
+first:
+
+```
+  'scratch-test' will be destroyed with no backup.
+  losing    12 commit(s), 3 uncommitted change(s)
+  note      no git remote is configured, so this history exists nowhere else
+```
+
+The remote note only appears when there is no git remote - if you have pushed
+somewhere, the history is not actually gone and the warning would be noise.
+`-Force` skips the prompt for scripted teardown, and `-WhatIf` shows what would
+happen without touching anything.
+
+Without `-NoBackup`, an uncommitted working tree still stops the removal
+outright, since a bundle captures committed history only.
 
 Commit often, and push to a remote for anything you would be upset to lose.
 
@@ -198,7 +236,7 @@ C:\AgentDev\
 ├── New-Project.ps1       clone base -> new instance -> open
 ├── Start-Project.ps1     open an existing instance (everyday command)
 ├── Get-Project.ps1       list projects with state, disk usage, git status
-├── Remove-Project.ps1    safe teardown with git bundle backup
+├── Remove-Project.ps1    teardown; bundles history unless -NoBackup
 ├── Common.ps1            paths, name validation, WSL helpers
 ├── Instances\            per-project VHDX (one directory per project)
 ├── Projects\             git bundle backups written by Remove-Project
