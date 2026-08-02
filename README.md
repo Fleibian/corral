@@ -134,14 +134,21 @@ directory - no script change needed.
 ## One AGENTS.md, three agents
 
 `Dotfiles\AGENTS.md` is the only place your agent instructions live. The base
-image build copies it to every agent's global instruction path:
+image build copies it to every agent's global instruction path **inside the
+instance**:
 
-- `~/.claude/CLAUDE.md`
-- `~/.codex/AGENTS.md`
-- `~/.pi/agent/AGENTS.md`
+- `/home/dev/.claude/CLAUDE.md`
+- `/home/dev/.codex/AGENTS.md`
+- `/home/dev/.pi/agent/AGENTS.md`
 
-The legacy Sandbox path reads the same file. Projects additionally get their
-own `AGENTS.md` describing the instance environment.
+These are copies deployed into the image. An agent reads its policy from inside
+its own instance; your host's `C:\Users\<you>\.claude\` is never touched and is
+not reachable from an instance at all. Editing `Dotfiles\AGENTS.md` changes
+what *future* instances receive - rebuild the base image to propagate it, since
+existing projects keep the copy they were created with.
+
+The legacy Sandbox path reads the same source file. Projects additionally get
+their own `AGENTS.md` describing the instance environment.
 
 ## What the base image contains
 

@@ -1,7 +1,10 @@
 # Project agent instructions
 
-Your global policy in `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` and
-`~/.pi/agent/AGENTS.md` still applies. This file adds environment context.
+Your global policy still applies. It lives at `/home/dev/.claude/CLAUDE.md`,
+`/home/dev/.codex/AGENTS.md` and `/home/dev/.pi/agent/AGENTS.md` - these are
+copies placed inside this instance when its image was built, not files on the
+host. The host's own configuration is not reachable from here. This file adds
+environment context on top of that policy.
 
 ## Where you are
 
