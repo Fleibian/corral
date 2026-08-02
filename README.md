@@ -65,6 +65,37 @@ C:\AgentDev\
 copy. To add a dotfile, drop it at the path it should occupy in the home
 directory - no script change needed.
 
+## What's included
+
+Every project starts from the same Ubuntu 24.04 base image, so all of this is
+present the moment the instance opens - nothing installs on first use.
+
+| | |
+|---|---|
+| **Coding agents** | `claude`, `codex`, `pi` |
+| **Session** | `herdr` multiplexer; WezTerm runs on the Windows host and attaches |
+| **Editor** | `nvim`, with your Neovim config and its plugin lockfile |
+| **Search** | `ripgrep`, `fd`, `fzf` |
+| **Shell** | `bash` with a `starship` prompt, `ll`/`gs` aliases, `ff` fuzzy directory jump, `dockerup` |
+| **Version control** | `git`, `gh` (GitHub CLI, for pushing) |
+| **Node** | `nvm` with the current LTS and `corepack`, so a project can pin its own version |
+| **Containers** | Docker engine with `compose` and `buildx`, its own daemon per instance (`dockerup` starts it) |
+| **Python** | `python3` with `venv` and `pip` |
+| **Build** | `build-essential`, `pkg-config`, `jq`, `unzip`/`zip`/`xz` |
+| **Network** | `iproute2`, `ping`, `dig` |
+| **Config** | your `AGENTS.md` fanned out to all three agents, plus `.gitconfig`, `starship.toml`, `.bashrc` |
+
+The `dev` user has passwordless `sudo`, so anything missing is one
+`sudo apt install` away - the instance is disposable, and installing into it is
+expected rather than discouraged.
+
+**Deliberately not included:** the Android SDK and a JDK. They would add roughly
+8-10 GB to *every* project, and neither Expo Go nor EAS cloud builds need them.
+Add them to the one instance that genuinely does local Android builds.
+
+Also absent by design: your SSH keys, your Windows PATH, and any access to the
+host filesystem. See [Isolation](#isolation).
+
 ## Seeing what you have
 
 ```powershell
@@ -259,17 +290,6 @@ The archived Sandbox implementation reads the same source file - it is mapped
 into the sandbox at `C:\DotfilesShared` - so there is one AGENTS.md across
 both. Projects additionally get their own `AGENTS.md` describing the instance
 environment.
-
-## What the base image contains
-
-Ubuntu 24.04, plus: git, ripgrep, fd, fzf, neovim, starship, jq, build
-essentials, Python 3, Node via `nvm` (LTS + corepack), Docker engine, Herdr,
-and the `claude`, `codex` and `pi` agents.
-
-Android SDK and JDK are deliberately **not** included - they would add roughly
-8-10 GB to every project. Expo cloud builds and Expo Go need none of it. Add
-them to a specific instance when a project genuinely needs local Android
-builds.
 
 ## Expo and networking
 
