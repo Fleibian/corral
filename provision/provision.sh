@@ -147,6 +147,48 @@ su - "$DEV_USER" -c '
 
 # ------------------------------------------------------------------ dotfiles
 
+log "GitHub CLI"
+# Host SSH keys are deliberately not exposed to instances, so gh is how a
+# project pushes: `gh auth login` inside an instance stores a token scoped to
+# that instance alone. A compromised project cannot reach your machine-wide
+# credentials, and revoking one project's access does not affect the others.
+if ! command -v gh >/dev/null 2>&1; then
+    mkdir -p -m 755 /etc/apt/keyrings
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        -o /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list
+    apt-get update -qq
+    apt-get install -y -qq gh
+fi
+ok "$(gh --version 2>/dev/null | head -1 || echo 'gh install failed')"
+
+log "Session launcher"
+# Start-Project invokes this by name. Keeping the session logic in a script
+# means the launch command is a single argument with no spaces, quotes or
+# shell operators - PowerShell's Start-Process does not quote arguments that
+# contain spaces, so an inline `cmd && exec herdr || exec bash` gets split
+# into separate tokens and the terminal dies on startup.
+cat > /usr/local/bin/agentdev-session <<'LAUNCHER'
+#!/usr/bin/env bash
+# This script has a shebang, so it does not read .bashrc even when started from
+# a login shell. herdr lives in ~/.local/bin and node in ~/.nvm, so set both up
+# explicitly rather than depending on the caller's environment.
+export PATH="$HOME/.local/bin:$PATH"
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+
+cd "$HOME/workspace" 2>/dev/null || cd "$HOME"
+
+if command -v herdr >/dev/null 2>&1; then
+    exec herdr
+fi
+echo "herdr is not installed - falling back to a login shell." >&2
+exec bash -l
+LAUNCHER
+chmod 0755 /usr/local/bin/agentdev-session
+ok "agentdev-session"
+
 log "Dotfiles"
 if [ -d "$DOTFILES_SRC" ]; then
     # The wsl/ tree mirrors the home directory, so deployment is one copy.
@@ -177,12 +219,9 @@ apt-get clean
 rm -rf /var/lib/apt/lists/* /tmp/npm-*.log
 ok "apt caches removed"
 
-# The build distro runs with automount enabled so provisioning can read the
-# dotfiles off the Windows drive, which leaves empty /mnt/c, /mnt/d ... mount
-# points baked into the image. Project instances have automount disabled, so
-# these would linger as confusing empty directories that look like the Windows
-# drive is still exposed. Remove them.
-find /mnt -mindepth 1 -maxdepth 1 -type d -empty -delete 2>/dev/null || true
-ok "stale /mnt mount points removed"
+# Note: cleaning /mnt here would be pointless. The build distro has automount
+# enabled, and WSL recreates the drive mount points every time it starts - the
+# export step restarts it, so they come straight back. New-Project.ps1 removes
+# them inside each instance instead, where automount is off and they stay gone.
 
 log "Base image ready"

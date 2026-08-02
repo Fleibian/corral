@@ -73,6 +73,15 @@ Write-Host '  isolation  automount off, interop off, systemd on' -ForegroundColo
 # Seed the workspace. Done as a single login shell so nvm and PATH are present.
 $seed = @'
 set -e
+
+# The base image carries empty /mnt/c, /mnt/d ... directories, created by WSL
+# in the build distro where automount is enabled. Nothing is mounted on them
+# here - automount is off - but leaving them makes it look like the Windows
+# drives are exposed, which is exactly the thing this setup must be
+# unambiguous about. /mnt/wsl and /mnt/wslg are WSL's own and must stay.
+sudo find /mnt -mindepth 1 -maxdepth 1 -type d -empty \
+     -not -name wsl -not -name wslg -delete 2>/dev/null || true
+
 cd ~/workspace
 if [ ! -d .git ]; then
     git init -q

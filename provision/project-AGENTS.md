@@ -22,8 +22,12 @@ You are inside a dedicated WSL2 instance created for this project alone.
 
 - Everything worth keeping must be committed. The instance's history is the
   project - there is no copy on the Windows drive.
-- Host SSH keys and git credentials are deliberately unavailable. Commit
-  locally; pushing happens from the host.
+- Host SSH keys are deliberately unavailable. Pushing uses the GitHub CLI with
+  a token scoped to this instance. If `gh auth status` reports you are not
+  logged in, ask the user to run `gh auth login` - do not attempt to work
+  around it or add credentials by other means.
+- Do not push unless the user asks. Committing is yours to do freely; sending
+  code to a remote is their call.
 - Node is managed by `nvm`; run `nvm use` if the project pins a version.
 - For Expo, start Metro with `npx expo start`. Networking is mirrored from the
   host, so a phone on the same Wi-Fi can reach it directly.

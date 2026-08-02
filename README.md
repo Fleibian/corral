@@ -84,8 +84,25 @@ Mitigations:
 - Browse from Windows any time at `\\wsl.localhost\agentdev-<name>\home\dev\workspace`.
 - Open in VS Code with `code --remote wsl+agentdev-<name> /home/dev/workspace`.
 
-Commit often, and push to a remote from the host for anything you would be
-upset to lose.
+Commit often, and push to a remote for anything you would be upset to lose.
+
+## Pushing to GitHub
+
+Host SSH keys are never exposed to an instance. Each instance authenticates
+itself instead, once, with the GitHub CLI:
+
+```bash
+gh auth login          # HTTPS; browser or token both work
+gh auth setup-git      # makes git push use that token
+git push
+```
+
+The token lives only in that instance. A project cannot reach your
+machine-wide credentials, and revoking one project's access leaves every other
+project untouched. `gh repo create` also works for publishing a new project.
+
+The project `AGENTS.md` tells agents to commit freely but to leave pushing to
+you.
 
 ## Layout
 
@@ -148,6 +165,21 @@ Note that `.wslconfig` is global - it applies to your existing `Ubuntu` and
 `docker-desktop` distros too.
 
 Start Metro as usual with `npx expo start`.
+
+## Known rough edges
+
+- **WezTerm window titles all read `wslhost.exe`.** With several projects open
+  they are hard to tell apart on the taskbar. WezTerm derives the title from
+  the foreground process and overrides an OSC title sequence set by the
+  launcher; `wezterm cli set-window-title` cannot reach the GUI socket either.
+  Fixable with a `format-window-title` handler in your personal
+  `~/.wezterm.lua`, which is deliberately left alone here.
+- **Agent login is once per project**, not once per session. The base image
+  carries no credentials, so the first `claude` in a new instance prompts you.
+  It then persists for the life of that instance.
+- **Instances are cloned from the base image at creation time.** Rebuilding the
+  base image does not update existing projects; they keep the toolchain they
+  were created with.
 
 ## Requirements
 
