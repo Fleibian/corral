@@ -1,6 +1,0 @@
-[projects.'c:\Workspace']
-trust_level = "trusted"
-
-[tui]
-status_line = ["model-with-reasoning", "current-dir", "model", "context-used"]
-status_line_use_colors = true

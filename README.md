@@ -16,6 +16,9 @@ C:\AgentDev\New-Project.ps1 invoice-service
 # Open it again on any later day (this is the everyday command)
 C:\AgentDev\Start-Project.ps1 invoice-service
 
+# See what you have
+C:\AgentDev\Get-Project.ps1
+
 # Destroy it - backs up git history to Windows first
 C:\AgentDev\Remove-Project.ps1 invoice-service
 ```
@@ -29,6 +32,49 @@ Your personal `~/.wezterm.lua` is never modified. `Start-Project` points
 `WEZTERM_CONFIG_FILE` at `provision\wezterm.lua`, which inherits your config
 (theme, font, opacity) and only adds the title handling - every other terminal
 you open behaves exactly as before.
+
+## Seeing what you have
+
+```powershell
+C:\AgentDev\Get-Project.ps1
+```
+
+```
+Name            State   DiskGB
+----            -----   ------
+mobile-app      running   3.26
+invoice-service stopped   3.26
+```
+
+Add `-Detailed` for git state:
+
+```powershell
+C:\AgentDev\Get-Project.ps1 -Detailed
+```
+
+```
+Name            State   DiskGB Branch Dirty
+----            -----   ------ ------ -----
+mobile-app      running   3.26 master     0
+invoice-service stopped   3.26 master     0
+```
+
+`Dirty` is the number of uncommitted changes - worth checking before
+`Remove-Project`, which refuses to destroy a project whose tree is dirty.
+`-Detailed` is opt-in rather than the default because it has to *start* every
+stopped instance in order to ask git, which the plain listing avoids.
+
+Two things worth knowing:
+
+- It lists only `agentdev-` distributions. Your own `Ubuntu` and
+  `docker-desktop` never appear, and nothing here will ever touch them. The
+  raw equivalent, `wsl -l -v`, mixes them in and shows the prefix.
+- It emits objects, not text, so it pipes:
+  `Get-Project.ps1 | Where-Object State -eq 'running'`.
+
+The `DiskGB` column is worth watching. Every project is a full clone of the
+~2.9 GB base image, so ten projects is roughly 30 GB. That is inherent to
+giving each project its own instance.
 
 ## Why WSL2 rather than Windows Sandbox
 
@@ -151,6 +197,7 @@ C:\AgentDev\
 ├── Build-BaseImage.ps1   builds the golden image (slow, run once)
 ├── New-Project.ps1       clone base -> new instance -> open
 ├── Start-Project.ps1     open an existing instance (everyday command)
+├── Get-Project.ps1       list projects with state, disk usage, git status
 ├── Remove-Project.ps1    safe teardown with git bundle backup
 ├── Common.ps1            paths, name validation, WSL helpers
 ├── Instances\            per-project VHDX (one directory per project)
