@@ -1,0 +1,9 @@
+[user]
+	name = Fleibian
+	email = Fleibian@users.noreply.github.com
+[init]
+	defaultBranch = master
+[core]
+	editor = nvim
+[pull]
+	rebase = false

@@ -41,6 +41,22 @@ $LogFile = if (Test-Path $Workspace) {
     'C:\bootstrap-log.txt'
 }
 
+# Windows PowerShell renders a progress bar for every web request, which is
+# drastically slow when the host is non-interactive - it dominates download
+# time and can appear to hang outright. Suppressing it applies to the Scoop
+# and Herdr installers too, since they inherit this preference.
+$ProgressPreference = 'SilentlyContinue'
+
+# Full transcript alongside the step log: the step log says which step we were
+# on, the transcript says what the installer actually printed. Without it a
+# failure inside a third-party installer is invisible once the sandbox closes.
+$TranscriptFile = if (Test-Path $Workspace) {
+    Join-Path $Workspace '.agentdev-bootstrap-transcript.log'
+} else {
+    'C:\bootstrap-transcript.txt'
+}
+try { Start-Transcript -Path $TranscriptFile -Force | Out-Null } catch { }
+
 # ---------------------------------------------------------------- logging ---
 
 $script:StepNumber = 0
@@ -91,6 +107,36 @@ function Invoke-Step {
 function Test-Cmd {
     param([string]$Name)
     [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+<#
+.SYNOPSIS
+    Runs a native command, judging success only by its exit code.
+.DESCRIPTION
+    Native tools write warnings and progress to stderr as a matter of course.
+    Under $ErrorActionPreference = 'Stop', redirecting with 2>&1 promotes every
+    one of those stderr records to a terminating error - so a plain
+    `npm warn ...` aborts an install that is actually succeeding. The exit code
+    is the only real success signal, so this drops back to 'Continue' for the
+    duration of the call and checks $LASTEXITCODE.
+#>
+function Invoke-Native {
+    param(
+        [Parameter(Mandatory)][scriptblock]$Command,
+        [Parameter(Mandatory)][string]$What
+    )
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & $Command 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            $detail = ($output | Where-Object { "$_".Trim() } | Select-Object -Last 3) -join ' | '
+            throw "$What exited $LASTEXITCODE. $detail"
+        }
+        return $output
+    } finally {
+        $ErrorActionPreference = $previous
+    }
 }
 
 # Scoop and the npm/agent installers all mutate PATH in the registry rather
@@ -160,21 +206,26 @@ if (Test-Cmd scoop) {
         -Test   { (scoop bucket list | Select-Object -ExpandProperty Name) -contains 'extras' } `
         -Action { scoop bucket add extras }
 
-    $mainPackages = @(
-        @{ Package = 'neovim';     Command = 'nvim' },
-        @{ Package = 'ripgrep';    Command = 'rg' },
-        @{ Package = 'fd';         Command = 'fd' },
-        @{ Package = 'fzf';        Command = 'fzf' },
-        @{ Package = 'starship';   Command = 'starship' },
-        @{ Package = 'nodejs-lts'; Command = 'node' },
-        @{ Package = 'extras/wezterm'; Command = 'wezterm' }
+    # vcredist2022 must come first. The Windows Sandbox base image ships
+    # without the Visual C++ runtime, and nearly everything installed here is
+    # MSVC-linked - node.exe, herdr.exe, wezterm and neovim all fail to start
+    # with STATUS_DLL_NOT_FOUND (0xC0000135) until VCRUNTIME140.dll exists.
+    $packages = @(
+        @{ Package = 'extras/vcredist2022'; Test = { Test-Path (Join-Path $env:WINDIR 'System32\vcruntime140.dll') } },
+        @{ Package = 'neovim';              Test = { Test-Cmd nvim } },
+        @{ Package = 'ripgrep';             Test = { Test-Cmd rg } },
+        @{ Package = 'fd';                  Test = { Test-Cmd fd } },
+        @{ Package = 'fzf';                 Test = { Test-Cmd fzf } },
+        @{ Package = 'starship';            Test = { Test-Cmd starship } },
+        @{ Package = 'nodejs-lts';          Test = { Test-Cmd node } },
+        @{ Package = 'extras/wezterm';      Test = { Test-Cmd wezterm } }
     )
 
-    foreach ($pkg in $mainPackages) {
+    foreach ($pkg in $packages) {
         $name = $pkg.Package
-        $cmd  = $pkg.Command
-        Invoke-Step -Name $name -Test { Test-Cmd $cmd }.GetNewClosure() `
-                    -Action { scoop install $name }.GetNewClosure()
+        Invoke-Step -Name $name -Test $pkg.Test -Action {
+            Invoke-Native { scoop install $name } "scoop install $name" | Out-Null
+        }.GetNewClosure()
         Sync-Path
     }
 } else {
@@ -206,10 +257,7 @@ if (Test-Cmd npm) {
         $pkg       = $agent.Package
         $extraArgs = $agent.Args
         Invoke-Step -Name $cmd -Test { Test-Cmd $cmd }.GetNewClosure() -Action {
-            $output = & npm install -g @extraArgs $pkg 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                throw "npm install -g $pkg exited $LASTEXITCODE - $(($output | Select-Object -Last 3) -join ' ')"
-            }
+            Invoke-Native { npm install -g @extraArgs $pkg } "npm install -g $pkg" | Out-Null
             Sync-Path
         }.GetNewClosure()
         Sync-Path
@@ -224,13 +272,17 @@ Write-Step 'Dotfiles'
 
 # The dotfiles mirror the real profile layout, so deployment is a plain
 # recursive copy per root rather than a source-to-target mapping table.
+# C:\Dotfiles is the Dotfiles root (shared AGENTS.md at its top level); the
+# Windows-specific profile trees live under its windows\ subdirectory.
+$ProfileRoot = "$DotfilesRoot\windows"
+
 $dotfileTrees = @(
-    @{ Source = "$DotfilesRoot\profile";        Target = $env:USERPROFILE },
-    @{ Source = "$DotfilesRoot\localappdata";   Target = $env:LOCALAPPDATA },
+    @{ Source = "$ProfileRoot\profile";        Target = $env:USERPROFILE },
+    @{ Source = "$ProfileRoot\localappdata";   Target = $env:LOCALAPPDATA },
     # Both PowerShell editions get the profile so the prompt is consistent
     # whether a tool launches pwsh or powershell.exe.
-    @{ Source = "$DotfilesRoot\Documents\PowerShell"; Target = "$env:USERPROFILE\Documents\PowerShell" },
-    @{ Source = "$DotfilesRoot\Documents\PowerShell"; Target = "$env:USERPROFILE\Documents\WindowsPowerShell" }
+    @{ Source = "$ProfileRoot\Documents\PowerShell"; Target = "$env:USERPROFILE\Documents\PowerShell" },
+    @{ Source = "$ProfileRoot\Documents\PowerShell"; Target = "$env:USERPROFILE\Documents\WindowsPowerShell" }
 )
 
 foreach ($tree in $dotfileTrees) {
@@ -314,6 +366,8 @@ if ($missing) {
     Write-Ok 'all expected tools on PATH'
 }
 
+try { Stop-Transcript | Out-Null } catch { }
+
 if ($NoLaunch) { return }
 
 # --------------------------------------------------------------- 9. launch ---
@@ -322,12 +376,16 @@ Write-Step 'Launching workspace'
 
 $launchDir = if (Test-Path $Workspace) { $Workspace } else { $env:USERPROFILE }
 
-if ((Test-Cmd wezterm) -and (Test-Cmd herdr)) {
-    Start-Process wezterm -ArgumentList @('start', '--cwd', $launchDir, '--', 'herdr')
-    Write-Ok 'wezterm + herdr'
-} elseif (Test-Cmd wezterm) {
-    Start-Process wezterm -ArgumentList @('start', '--cwd', $launchDir)
-    Write-Warn 'herdr unavailable - opened a plain wezterm shell'
+if (Test-Cmd wezterm) {
+    # Run the payload through powershell -NoExit rather than spawning it
+    # directly: if herdr exits or fails to start, wezterm would otherwise close
+    # instantly and leave no window and no error to read.
+    $inner = if (Test-Cmd herdr) { 'herdr' } else { 'Write-Warning "herdr is not installed - see .agentdev-bootstrap.log"' }
+    Start-Process wezterm -ArgumentList @(
+        'start', '--cwd', $launchDir, '--',
+        'powershell.exe', '-NoExit', '-Command', $inner
+    )
+    if (Test-Cmd herdr) { Write-Ok 'wezterm + herdr' } else { Write-Warn 'herdr unavailable - opened wezterm without it' }
 } else {
     Start-Process powershell -ArgumentList @('-NoExit', '-Command', "Set-Location '$launchDir'")
     Write-Warn 'wezterm unavailable - opened powershell'

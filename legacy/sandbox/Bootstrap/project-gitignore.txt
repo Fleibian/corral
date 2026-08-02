@@ -4,8 +4,9 @@ Desktop.ini
 .DS_Store
 *.swp
 
-# Sandbox provisioning log, rewritten on every launch.
+# Sandbox provisioning logs, rewritten on every launch.
 .agentdev-bootstrap.log
+.agentdev-bootstrap-transcript.log
 
 # Agent + tool state that should never be committed
 .claude/

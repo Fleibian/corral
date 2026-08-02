@@ -1,22 +1,27 @@
 <#
 .SYNOPSIS
-    Creates a new isolated project and launches its sandbox.
+    Creates an isolated WSL2 instance for one project and opens it.
 
 .DESCRIPTION
-    One-time entry point for a project: creates the directory, initialises git,
-    seeds .gitignore and AGENTS.md, then hands off to Start-Project.ps1 to
-    generate the sandbox config and launch it.
+    Clones the base image into a fresh distro, locks down its WSL configuration
+    so it cannot see the Windows filesystem or execute Windows binaries,
+    initialises a git repository in the workspace, and opens a terminal.
 
-    Use Start-Project.ps1 for every launch after this one.
+    Isolation comes from three things:
+      - a dedicated distro per project, each with its own root filesystem
+      - automount disabled, so C:\ is not mounted at /mnt/c
+      - interop disabled, so Windows executables cannot be launched
+
+    Project files live on ext4 inside the instance. That is deliberate:
+    cross-OS file access via drvfs is WSL's slowest path, and React Native's
+    Metro bundler plus a large node_modules make it painful. Browse the files
+    from Windows at \\wsl.localhost\agentdev-<name>\home\dev\workspace.
 
 .PARAMETER Name
-    Project directory name, created under C:\AgentDev\Projects.
-
-.PARAMETER MemoryMB
-    Memory for the sandbox. Defaults to 8 GB.
+    Project name. Becomes the distro 'agentdev-<name>'.
 
 .PARAMETER NoLaunch
-    Create the project but do not start the sandbox.
+    Create the instance but do not open a terminal.
 
 .EXAMPLE
     .\New-Project.ps1 invoice-service
@@ -25,9 +30,6 @@
 param(
     [Parameter(Mandatory, Position = 0)]
     [string]$Name,
-
-    [ValidateRange(2048, 65536)]
-    [int]$MemoryMB = 8192,
 
     [switch]$NoLaunch
 )
@@ -38,47 +40,62 @@ Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'Common.ps1')
 
 Assert-ProjectName $Name | Out-Null
+$distro = Get-DistroName $Name
 
-$projectPath = Join-Path $AgentDev.Projects $Name
-if (Test-Path $projectPath) {
-    throw "Project already exists: $projectPath. Launch it with: .\Start-Project.ps1 $Name"
+if (-not (Test-WslAvailable)) { throw 'wsl.exe not found. Install WSL with: wsl --install' }
+
+if (-not (Test-Path $AgentDev.BaseImage)) {
+    throw "No base image at $($AgentDev.BaseImage). Build it first with: .\Build-BaseImage.ps1"
+}
+if (Test-WslDistro $distro) {
+    throw "Project '$Name' already exists. Open it with: .\Start-Project.ps1 $Name"
 }
 
-New-Item -ItemType Directory -Path $projectPath -Force | Out-Null
-Write-Host ""
-Write-Host "  created   $projectPath" -ForegroundColor Green
+$instanceDir = Join-Path $AgentDev.Instances $Name
+New-Item -ItemType Directory -Path $instanceDir -Force | Out-Null
 
-Copy-Item (Join-Path $AgentDev.Bootstrap 'project-gitignore.txt') (Join-Path $projectPath '.gitignore')  -Force
-Copy-Item (Join-Path $AgentDev.Bootstrap 'project-AGENTS.md')     (Join-Path $projectPath 'AGENTS.md')   -Force
+Write-Host ''
+Write-Host "  Creating '$Name' from base image..." -ForegroundColor Cyan
 
-Set-Content -Path (Join-Path $projectPath 'README.md') -Encoding utf8 -Value @"
-# $Name
+& wsl.exe --import $distro $instanceDir $AgentDev.BaseImage --version 2
+if ($LASTEXITCODE -ne 0) { throw "wsl --import failed (exit $LASTEXITCODE)" }
+Write-Host "  instance   $instanceDir" -ForegroundColor Gray
 
-Created $(Get-Date -Format 'yyyy-MM-dd') by New-Project.ps1.
+# Lock the instance down before it is ever used interactively.
+$wslConf = (Get-Content (Join-Path $AgentDev.Provision 'wsl.conf') -Raw) -replace '__HOSTNAME__', $Name
+Write-DistroFile -DistroName $distro -Path '/etc/wsl.conf' -Content $wslConf
 
-Launch the sandbox for this project from the host:
+# wsl.conf is read at boot, so the instance must be restarted for automount and
+# interop to actually be disabled.
+& wsl.exe --terminate $distro | Out-Null
+Write-Host '  isolation  automount off, interop off, systemd on' -ForegroundColor Gray
 
-    C:\AgentDev\Start-Project.ps1 $Name
+# Seed the workspace. Done as a single login shell so nvm and PATH are present.
+$seed = @'
+set -e
+cd ~/workspace
+if [ ! -d .git ]; then
+    git init -q
+    printf 'node_modules/\n.expo/\ndist/\nbuild/\n*.log\n.DS_Store\n' > .gitignore
+    cp /etc/agentdev/project-AGENTS.md AGENTS.md 2>/dev/null || true
+    git add -A
+    git -c user.name='Agent Workspace' -c user.email='noreply@localhost' \
+        commit -q -m 'Initial commit: project scaffold'
+fi
+'@
+Write-DistroFile -DistroName $distro -Path '/etc/agentdev/project-AGENTS.md' `
+                 -Content (Get-Content (Join-Path $AgentDev.Provision 'project-AGENTS.md') -Raw)
+Invoke-InDistro -DistroName $distro -Command $seed | Out-Null
+Write-Host '  workspace  ~/workspace initialised with git' -ForegroundColor Gray
 
-Inside the sandbox this directory is ``C:\Workspace`` and is the only thing
-that survives the sandbox being closed.
-"@
+Write-Host ''
+Write-Host "  Windows access: \\wsl.localhost\$distro\home\dev\workspace" -ForegroundColor DarkGray
+Write-Host "  VS Code:        code --remote wsl+$distro /home/dev/workspace" -ForegroundColor DarkGray
+Write-Host ''
 
-Push-Location $projectPath
-try {
-    & git init --quiet
-    & git add -A
-    # -c keeps this out of the host's global config; the sandbox gets identity
-    # from the dotfiles .gitconfig.
-    & git -c user.name='Windows Agent Workspace' -c user.email='noreply@localhost' `
-          commit --quiet -m 'Initial commit: project scaffold'
-    if ($LASTEXITCODE -eq 0) { Write-Host "  git       initialised with initial commit" -ForegroundColor Green }
-} catch {
-    Write-Warning "git init failed: $($_.Exception.Message)"
-} finally {
-    Pop-Location
+if ($NoLaunch) {
+    Write-Host "  Open it with: .\Start-Project.ps1 $Name" -ForegroundColor Yellow
+    return
 }
 
-$startArgs = @{ Name = $Name; MemoryMB = $MemoryMB }
-if ($NoLaunch) { $startArgs.NoLaunch = $true }
-& (Join-Path $PSScriptRoot 'Start-Project.ps1') @startArgs
+& (Join-Path $PSScriptRoot 'Start-Project.ps1') -Name $Name
