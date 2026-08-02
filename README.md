@@ -124,6 +124,7 @@ present the moment the instance opens - nothing installs on first use.
 | **Python** | `python3` with `venv` and `pip` |
 | **Build** | `build-essential`, `pkg-config`, `jq`, `unzip`/`zip`/`xz` |
 | **Network** | `iproute2`, `ping`, `dig` |
+| **Parallel agents** | [firstmate](https://github.com/kunchenguid/firstmate) at `~/firstmate`, with this project registered under it |
 | **Agent skills** | not preinstalled - each project gets a `SKILLS.md` with the commands |
 | **Config** | your `AGENTS.md` fanned out to all three agents, plus `.gitconfig`, `starship.toml`, `.bashrc`, `herdr/config.toml` |
 
@@ -137,6 +138,41 @@ Add them to the one instance that genuinely does local Android builds.
 
 Also absent by design: your SSH keys, your Windows PATH, and any access to the
 host filesystem. See [Isolation](#isolation).
+
+### Firstmate
+
+[firstmate](https://github.com/kunchenguid/firstmate) is an agent distro: one
+supervising agent runs a crew of workers in parallel, each in its own git
+worktree. It is cloned into every instance at `~/firstmate`, and each project is
+registered under it automatically.
+
+```bash
+fm        # cd to ~/firstmate and print how to launch
+claude    # or codex / pi - start the crew from inside that directory
+```
+
+Firstmate normally expects your projects to live under its own `projects/`
+directory with one agent spanning them. That is the inverse of one instance per
+project, so here it supervises a single repo - its parallelism still applies,
+because the crew works in worktrees *within* that repo.
+
+**Prerequisites are already in the image**: herdr 0.7.5 (which firstmate lists
+as a verified protocol-14 backend), `jq`, `python3`, `git`, `gh`, and the three
+agent harnesses. `gh auth login` is still needed per instance before its
+PR-shipping path works - see [Pushing to GitHub](#pushing-to-github).
+
+**Backend**: firstmate drives a multiplexer to spawn its crew. `FM_BACKEND` is
+deliberately left unset so it auto-detects - herdr in a normal session, and
+correctly *not* herdr under `corral open <name> -Shell`. `tmux` is installed but
+idle; if the herdr backend misbehaves, `FM_BACKEND=tmux` switches to firstmate's
+verified reference path without needing to install anything inside an isolated
+instance.
+
+`corral build` refreshes firstmate to the latest `main`. Existing projects keep
+the revision they were created with.
+
+`firstmate` is a reserved project name - firstmate labels its own primary home
+that, and a colliding label refuses new spawns.
 
 ### Agent skills
 

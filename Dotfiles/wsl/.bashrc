@@ -43,6 +43,17 @@ dockerup() {
     sudo systemctl start docker && docker info >/dev/null 2>&1 && echo "docker ready"
 }
 
+# Firstmate is launched by starting an agent from inside its own directory,
+# which is not obvious from anywhere else.
+fm() {
+    if [ ! -d "$HOME/firstmate" ]; then
+        echo "firstmate is not installed in this instance." >&2
+        return 1
+    fi
+    cd "$HOME/firstmate" || return 1
+    echo "firstmate $(git rev-parse --short HEAD 2>/dev/null) - start a crew with: claude   (or codex / pi)"
+}
+
 command -v starship >/dev/null 2>&1 && eval "$(starship init bash)"
 
 # Land in the project rather than the home directory.

@@ -109,6 +109,14 @@ build/
 SKILLS.md
 GITIGNORE
     cp /etc/agentdev/project-AGENTS.md AGENTS.md 2>/dev/null || true
+
+    # Register this project with firstmate. Its projects/ directory is
+    # gitignored upstream, so the symlink leaves that repo clean. The hostname
+    # is the project name, set in /etc/wsl.conf.
+    if [ -d "$HOME/firstmate" ]; then
+        mkdir -p "$HOME/firstmate/projects"
+        ln -sfn "$HOME/workspace" "$HOME/firstmate/projects/$(hostname)"
+    fi
     # Skills are installed by hand, per project. This is the checklist of what
     # to run; it is gitignored, being a local reminder rather than project
     # content.

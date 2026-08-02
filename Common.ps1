@@ -20,7 +20,10 @@ $AgentDevPrefix = 'agentdev-'
 $script:ReservedNames = @(
     'CON','PRN','AUX','NUL',
     'COM1','COM2','COM3','COM4','COM5','COM6','COM7','COM8','COM9',
-    'LPT1','LPT2','LPT3','LPT4','LPT5','LPT6','LPT7','LPT8','LPT9'
+    'LPT1','LPT2','LPT3','LPT4','LPT5','LPT6','LPT7','LPT8','LPT9',
+    # Firstmate labels its primary home 'firstmate', and a colliding home label
+    # refuses new spawns - so a project by that name would break its own crew.
+    'FIRSTMATE'
 )
 
 <#

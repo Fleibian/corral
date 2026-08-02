@@ -32,7 +32,7 @@ apt-get install -y -qq --no-install-recommends \
     neovim \
     jq \
     python3 python3-venv python3-pip \
-    sudo locales tzdata \
+    sudo locales tzdata tmux \
     iproute2 iputils-ping dnsutils \
     watchman 2>/dev/null || \
 apt-get install -y -qq --no-install-recommends \
@@ -168,6 +168,30 @@ ok "$(gh --version 2>/dev/null | head -1 || echo 'gh install failed')"
 # and installed by hand - each new workspace gets a SKILLS.md listing the
 # commands. Keeping them out of the image also keeps project creation free of a
 # network round-trip.
+
+log "Firstmate agent distro"
+# Not a package - the repo *is* the distribution, pure bash run in place. Cloned
+# into the image so every project has it without a network round-trip at
+# creation time. `corral build` is what refreshes it; existing projects keep the
+# revision they were created with.
+#
+# The backend is deliberately NOT pinned here. Firstmate auto-detects from $TMUX
+# then HERDR_ENV=1, and agentdev-session always execs herdr, so detection lands
+# on herdr in normal use - while a `-Shell` session without herdr still resolves
+# correctly. Setting FM_BACKEND globally would force herdr where it cannot work.
+su - "$DEV_USER" -c '
+    if [ -d "$HOME/firstmate/.git" ]; then
+        echo "    --   firstmate (already present)"
+    elif git clone --depth 1 --quiet https://github.com/kunchenguid/firstmate "$HOME/firstmate" 2>/tmp/fm.log; then
+        echo "    OK   firstmate $(git -C "$HOME/firstmate" rev-parse --short HEAD)"
+    else
+        echo "    WARN firstmate clone failed:"
+        tail -3 /tmp/fm.log | sed "s/^/         /"
+    fi
+    # Gitignored upstream, so registering a project here leaves the repo clean.
+    mkdir -p "$HOME/firstmate/projects"
+'
+rm -f /tmp/fm.log
 
 log "Session launcher"
 # Start-Project invokes this by name. Keeping the session logic in a script

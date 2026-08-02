@@ -20,6 +20,10 @@ You are inside a dedicated WSL2 instance created for this project alone.
 - Docker runs inside this instance with its own daemon. Start it on demand with
   `dockerup` (or `sudo systemctl start docker`). Containers and images here are
   not shared with any other project.
+- `~/firstmate` holds the firstmate agent distro, and this project is registered
+  under `~/firstmate/projects/`. Running a crew means starting an agent from
+  inside `~/firstmate` (the `fm` shell function takes you there) - not from
+  here. Leave that to the user unless asked.
 
 ## Consequences for how you work
 
