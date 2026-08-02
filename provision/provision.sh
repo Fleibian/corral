@@ -33,6 +33,7 @@ apt-get install -y -qq --no-install-recommends \
     jq \
     python3 python3-venv python3-pip \
     sudo locales tzdata tmux \
+    wl-clipboard xclip \
     iproute2 iputils-ping dnsutils \
     watchman 2>/dev/null || \
 apt-get install -y -qq --no-install-recommends \
@@ -42,6 +43,13 @@ apt-get install -y -qq --no-install-recommends \
     python3 python3-venv python3-pip sudo locales tzdata \
     iproute2 iputils-ping dnsutils
 ok "apt packages"
+
+# wl-clipboard is what makes Neovim's `clipboard=unnamedplus` actually reach
+# Windows. WSLg provides a Wayland socket (WAYLAND_DISPLAY=wayland-0) and
+# bridges its clipboard to the host - verified to work even with interop
+# disabled, so no win32yank and no /mnt/c are needed. xclip is the fallback for
+# the X11 path, since without either Neovim silently falls back to its own
+# registers and yanks appear to do nothing.
 
 # Debian/Ubuntu ship fd as fdfind to avoid a name clash; everyone expects fd.
 if [ -x /usr/bin/fdfind ] && [ ! -e /usr/local/bin/fd ]; then

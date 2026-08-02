@@ -106,6 +106,14 @@ Currently shipped: `.bashrc`, `.gitconfig`, `.config/nvim/`,
 `.config/starship.toml`, and `.config/herdr/config.toml` (Herdr keybindings -
 that is where Herdr looks on Linux, unlike `%APPDATA%\herdr\` on Windows).
 
+**Clipboard**: your Neovim config sets `clipboard = unnamedplus`, so `y` yanks
+to the system clipboard and `p` pastes from it. That needs a clipboard provider,
+which the image supplies via `wl-clipboard` - WSLg exposes a Wayland socket and
+bridges its clipboard to Windows, and this works even with interop disabled, so
+no `win32yank` or `/mnt/c` is involved. `xclip` is installed as the X11
+fallback. Without a provider Neovim silently uses its own registers, and yanks
+appear to do nothing.
+
 ## What's included
 
 Every project starts from the same Ubuntu 24.04 base image, so all of this is
@@ -115,7 +123,7 @@ present the moment the instance opens - nothing installs on first use.
 |---|---|
 | **Coding agents** | `claude`, `codex`, `pi` |
 | **Session** | `herdr` multiplexer with your keybindings; WezTerm runs on the Windows host and attaches |
-| **Editor** | `nvim`, with your Neovim config and its plugin lockfile |
+| **Editor** | `nvim`, with your Neovim config and its plugin lockfile; `y` yanks straight to the Windows clipboard |
 | **Search** | `ripgrep`, `fd`, `fzf` |
 | **Shell** | `bash` with a `starship` prompt, `ll`/`gs` aliases, `ff` fuzzy directory jump, `dockerup` |
 | **Version control** | `git`, `gh` (GitHub CLI, for pushing) |
