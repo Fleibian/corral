@@ -55,11 +55,9 @@ C:\AgentDev\
 │   ├── wezterm.lua           overlay config that titles project windows
 │   ├── project-AGENTS.md     seeded into each new project
 │   └── project-SKILLS.md     checklist of skills to install by hand
-├── Dotfiles\
-│   ├── AGENTS.md         single source of truth for agent instructions
-│   └── wsl\              mirrors the Linux home directory
-└── Archive\              Windows Sandbox implementation (unmaintained)
-                          plus the original blueprint - see Archive\README.md
+└── Dotfiles\
+    ├── AGENTS.md         single source of truth for agent instructions
+    └── wsl\              mirrors the Linux home directory
 ```
 
 `Dotfiles\wsl\` mirrors `$HOME`, so provisioning deploys it with one recursive
@@ -322,9 +320,7 @@ not reachable from an instance at all. Editing `Dotfiles\AGENTS.md` changes
 what *future* instances receive - rebuild the base image to propagate it, since
 existing projects keep the copy they were created with.
 
-The archived Sandbox implementation reads the same source file - it is mapped
-into the sandbox at `C:\DotfilesShared` - so there is one AGENTS.md across
-both. Projects additionally get their own `AGENTS.md` describing the instance
+Projects additionally get their own `AGENTS.md` describing the instance
 environment.
 
 ## Expo and networking

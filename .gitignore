@@ -8,11 +8,6 @@ Projects/
 # Downloaded rootfs and the exported base image.
 Cache/
 
-# Generated or downloaded by the archived Windows Sandbox implementation.
-Archive/Sandboxes/
-Archive/Cache/
-Archive/Projects/
-
 # Upstream reference clone (kunchenguid/dotfiles), re-clonable.
 Dotfiles/source/
 
