@@ -53,7 +53,8 @@ C:\AgentDev\
 │   ├── provision.sh          runs once inside the base image build
 │   ├── wsl.conf              per-instance isolation config
 │   ├── wezterm.lua           overlay config that titles project windows
-│   └── project-AGENTS.md     seeded into each new project
+│   ├── project-AGENTS.md     seeded into each new project
+│   └── project-SKILLS.md     checklist of skills to install by hand
 ├── Dotfiles\
 │   ├── AGENTS.md         single source of truth for agent instructions
 │   └── wsl\              mirrors the Linux home directory
@@ -83,7 +84,7 @@ present the moment the instance opens - nothing installs on first use.
 | **Python** | `python3` with `venv` and `pip` |
 | **Build** | `build-essential`, `pkg-config`, `jq`, `unzip`/`zip`/`xz` |
 | **Network** | `iproute2`, `ping`, `dig` |
-| **Agent skills** | `chrome-devtools-axi`, `gh-axi` (global) and `lavish` (per project) |
+| **Agent skills** | not preinstalled - each project gets a `SKILLS.md` with the commands |
 | **Config** | your `AGENTS.md` fanned out to all three agents, plus `.gitconfig`, `starship.toml`, `.bashrc` |
 
 The `dev` user has passwordless `sudo`, so anything missing is one
@@ -99,41 +100,37 @@ host filesystem. See [Isolation](#isolation).
 
 ### Agent skills
 
-Three skills are installed for `claude-code`, `codex` and `pi`:
+Skills are **not** installed automatically. Every new project gets a
+`SKILLS.md` in its workspace listing what to install and the commands to run:
 
-| Skill | Scope | Installed by |
-|---|---|---|
-| `chrome-devtools-axi` | global | `provision.sh`, into the base image |
-| `gh-axi` | global | `provision.sh`, into the base image |
-| `lavish` | per project | `New-Project.ps1`, after `git init` |
+```bash
+npx skills add kunchenguid/chrome-devtools-axi --skill chrome-devtools-axi -g
+npx skills add kunchenguid/lavish-axi --skill lavish
+npx skills add kunchenguid/gh-axi --skill gh-axi -g
+```
 
-Check them from inside an instance with `skills list` and `skills list -g`.
+`-g` covers the whole instance, so it is a one-off; without it the skill is
+project-scoped and needs running in each new project. `skills list` and
+`skills list -g` show what is present.
 
-**Why `lavish` is installed per project rather than baked into the image.** It
-is project-scoped (no `-g`), and the CLI resolves "project" from the working
-directory. At image-build time `~/workspace` is a bare directory with no
-project to install into, so the command exits 0 having done nothing at all -
-success, silently. It has to run once the repo exists, which is why project
-creation takes ~75s rather than ~40s and needs network. A failure there warns
-and leaves the project usable rather than aborting.
+This is a deliberate choice, not a limitation - automating it worked, but
+installing by hand keeps project creation at ~40s with no network dependency,
+and lets you pick skills per project.
 
-**Adding more skills.** Global ones go in the `add_skill` list in
-`provision\provision.sh` and need a base image rebuild. Project-scoped ones go
-in the loop in `New-Project.ps1` and apply to the next project you create.
-Existing projects are unaffected either way - install into them directly.
+To change the list, edit `provision\project-SKILLS.md`. New projects pick it
+up; existing ones keep the copy they were created with.
 
-Two things the CLI is particular about, both of which cost me a rebuild:
+`SKILLS.md` and the skill payloads (`.agents/`, `.claude/skills/`,
+`.codex/skills/`, `.pi/skills/`) are gitignored, so nothing leaks into a
+project's history. `skills-lock.json` stays tracked once you install
+something - it is the manifest, the same split as `node_modules` versus
+`package-lock.json`.
 
-- Agent names must be repeated as separate `-a` flags. A comma-separated list
-  is rejected as `Invalid agents`, and the identifier is `claude-code`, not
-  `claude`.
-- Passing several `-a` flags in one invocation reports success but installs
-  for only some of them - in project scope `pi` is dropped and no `.pi/skills`
-  appears. Both scripts therefore install one agent at a time.
-
-Skill payloads are gitignored in new projects (`.agents/`, `.claude/skills/`,
-`.codex/skills/`, `.pi/skills/`); `skills-lock.json` stays tracked. Same split
-as `node_modules` versus `package-lock.json`.
+If you do script it, three things the CLI is particular about: `-y` is required
+or it opens an interactive picker and hangs; agent names are repeated as
+separate `-a` flags and the identifier is `claude-code`, not `claude`; and
+several `-a` flags in one invocation reports success while installing for only
+some of them, so install one agent at a time. `SKILLS.md` has a working loop.
 
 ## Seeing what you have
 

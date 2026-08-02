@@ -104,37 +104,28 @@ build/
 .claude/skills/
 .codex/skills/
 .pi/skills/
+
+# Local checklist of skills to install, not project content.
+SKILLS.md
 GITIGNORE
     cp /etc/agentdev/project-AGENTS.md AGENTS.md 2>/dev/null || true
-
-    # Project-scoped skills. These cannot live in the base image: the skills
-    # CLI resolves "project" from the working directory, and ~/workspace is a
-    # bare directory at build time, so the command exits 0 having installed
-    # nothing. It has to run here, once the repo exists.
-    #
-    # One invocation per agent. Passing several -a flags at once reports
-    # success but reproducibly installs for only some of them - in project
-    # scope 'pi' is silently dropped, and no .pi/skills directory appears.
-    # Installing one agent at a time is slower but actually deterministic.
-    # (The identifier is 'claude-code', not 'claude'; a comma-separated list is
-    # rejected outright; and without -y the CLI opens a picker and hangs.)
-    if command -v npx >/dev/null 2>&1; then
-        for agent in claude-code codex pi; do
-            npx --yes skills add kunchenguid/lavish-axi --skill lavish \
-                -a "$agent" -y >>/tmp/lavish.log 2>&1 \
-                || echo "WARN: project skill 'lavish' failed for $agent; see /tmp/lavish.log"
-        done
-    fi
+    # Skills are installed by hand, per project. This is the checklist of what
+    # to run; it is gitignored, being a local reminder rather than project
+    # content.
+    cp /etc/agentdev/project-SKILLS.md SKILLS.md 2>/dev/null || true
 
     git add -A
     git -c user.name='Agent Workspace' -c user.email='noreply@localhost' \
         commit -q -m 'Initial commit: project scaffold'
 fi
 '@
-Write-DistroFile -DistroName $distro -Path '/etc/agentdev/project-AGENTS.md' `
-                 -Content (Get-Content (Join-Path $AgentDev.Provision 'project-AGENTS.md') -Raw)
+foreach ($template in 'project-AGENTS.md', 'project-SKILLS.md') {
+    Write-DistroFile -DistroName $distro -Path "/etc/agentdev/$template" `
+                     -Content (Get-Content (Join-Path $AgentDev.Provision $template) -Raw)
+}
 Invoke-InDistro -DistroName $distro -Command $seed | Out-Null
 Write-Host '  workspace  ~/workspace initialised with git' -ForegroundColor Gray
+Write-Host '  skills     not installed - see SKILLS.md in the workspace' -ForegroundColor Gray
 
 Write-Host ''
 Write-Host "  Windows access: \\wsl.localhost\$distro\home\dev\workspace" -ForegroundColor DarkGray
