@@ -36,6 +36,35 @@ Your personal `~/.wezterm.lua` is never modified. `Start-Project` points
 (theme, font, opacity) and only adds the title handling - every other terminal
 you open behaves exactly as before.
 
+## Layout
+
+```
+C:\AgentDev\
+├── Build-BaseImage.ps1   builds the golden image (slow, run once)
+├── New-Project.ps1       clone base -> new instance -> open
+├── Start-Project.ps1     open an existing instance (everyday command)
+├── Get-Project.ps1       list projects with state, disk usage, git status
+├── Remove-Project.ps1    teardown; bundles history unless -NoBackup
+├── Common.ps1            paths, name validation, WSL helpers
+├── Instances\            per-project VHDX (one directory per project)
+├── Projects\             git bundle backups written by Remove-Project
+├── Cache\base\           downloaded rootfs + exported base image
+├── provision\
+│   ├── provision.sh          runs once inside the base image build
+│   ├── wsl.conf              per-instance isolation config
+│   ├── wezterm.lua           overlay config that titles project windows
+│   └── project-AGENTS.md     seeded into each new project
+├── Dotfiles\
+│   ├── AGENTS.md         single source of truth for agent instructions
+│   └── wsl\              mirrors the Linux home directory
+└── Archive\              Windows Sandbox implementation (unmaintained)
+                          plus the original blueprint - see Archive\README.md
+```
+
+`Dotfiles\wsl\` mirrors `$HOME`, so provisioning deploys it with one recursive
+copy. To add a dotfile, drop it at the path it should occupy in the home
+directory - no script change needed.
+
 ## Seeing what you have
 
 ```powershell
@@ -79,24 +108,6 @@ The `DiskGB` column is worth watching. Every project is a full clone of the
 ~2.9 GB base image, so ten projects is roughly 30 GB. That is inherent to
 giving each project its own instance.
 
-## Why WSL2 rather than Windows Sandbox
-
-The first implementation used Windows Sandbox. It worked, but re-provisioned an
-entire toolchain on every launch:
-
-| Phase | Windows Sandbox | WSL2 |
-|---|---|---|
-| Boot / start | ~40s | ~1-2s |
-| Toolchain provisioning | ~11 min, **every launch** | once, into the base image |
-| Project file I/O | VSMB mapped folder | native ext4 |
-| Concurrent projects | **1** (hard limit) | many |
-
-Windows Sandbox permits only one running instance, so two agents could never
-work on two projects at the same time. That ceiling, plus paying twelve minutes
-per launch to rebuild a byte-identical filesystem, is what motivated the move.
-
-The Sandbox implementation is kept in `Archive\` - working, but no longer
-maintained. See `Archive\README.md`, which also holds the original blueprint.
 
 ## Isolation
 
@@ -227,34 +238,6 @@ project untouched. `gh repo create` also works for publishing a new project.
 
 The project `AGENTS.md` tells agents to commit freely but to leave pushing to
 you.
-
-## Layout
-
-```
-C:\AgentDev\
-├── Build-BaseImage.ps1   builds the golden image (slow, run once)
-├── New-Project.ps1       clone base -> new instance -> open
-├── Start-Project.ps1     open an existing instance (everyday command)
-├── Get-Project.ps1       list projects with state, disk usage, git status
-├── Remove-Project.ps1    teardown; bundles history unless -NoBackup
-├── Common.ps1            paths, name validation, WSL helpers
-├── Instances\            per-project VHDX (one directory per project)
-├── Projects\             git bundle backups written by Remove-Project
-├── Cache\base\           downloaded rootfs + exported base image
-├── provision\
-│   ├── provision.sh          runs once inside the base image build
-│   ├── wsl.conf              per-instance isolation config
-│   └── project-AGENTS.md     seeded into each new project
-├── Dotfiles\
-│   ├── AGENTS.md         single source of truth for agent instructions
-│   └── wsl\              mirrors the Linux home directory
-└── Archive\              Windows Sandbox implementation (unmaintained)
-                          plus the original blueprint - see Archive\README.md
-```
-
-`Dotfiles\wsl\` mirrors `$HOME`, so provisioning deploys it with one recursive
-copy. To add a dotfile, drop it at the path it should occupy in the home
-directory - no script change needed.
 
 ## One AGENTS.md, three agents
 
