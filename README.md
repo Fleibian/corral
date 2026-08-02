@@ -95,9 +95,14 @@ ability to install packages or use Docker.
 **So the accurate threat model is:** this reliably stops an agent from wandering
 into another project or the host through normal means, and it stops a
 misbehaving dependency. It does not stop a deliberately malicious root-capable
-process from reading a sibling project's disk. If two projects must not be able
-to reach each other under any circumstances, run only one at a time and
-`wsl --shutdown` between them, or use separate machines or VMs.
+process from reading a sibling project's disk.
+
+**This is an accepted tradeoff, not an oversight.** Keeping passwordless `sudo`
+and the `docker` group is a deliberate choice: agents need to install packages,
+and per-instance Docker is a requirement. Removing them would close the gap but
+would also remove both capabilities. If a future project genuinely must not be
+reachable from the others, the options are to run it alone with a
+`wsl --shutdown` between switches, or to put it on a separate machine or VM.
 
 ## Where project files live
 
