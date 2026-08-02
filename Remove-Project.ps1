@@ -96,11 +96,22 @@ if ($NoBackup) {
         throw "Commit them first, or re-run with -Force to discard them, or -NoBackup if this project is disposable."
     }
 
-    New-Item -ItemType Directory -Path $AgentDev.Projects -Force | Out-Null
     $stamp      = Get-Date -Format 'yyyyMMdd-HHmmss'
     $bundleName = "$Name-$stamp.bundle"
     $bundlePath = Join-Path $AgentDev.Projects $bundleName
 
+    # Writing the bundle goes through raw file IO, which does not honour
+    # -WhatIf on its own - without this a dry run would leave a real file
+    # behind, which is exactly what -WhatIf promises not to do. Checked against
+    # $WhatIfPreference rather than ShouldProcess deliberately: taking a backup
+    # is not destructive, so it must never prompt, and routing it through the
+    # cmdlet's High confirm impact would make -Force silently skip the backup.
+    if ($WhatIfPreference) {
+        Write-Host "  (would back up git history to $bundlePath)" -ForegroundColor DarkGray
+        return
+    }
+
+    New-Item -ItemType Directory -Path $AgentDev.Projects -Force | Out-Null
     Write-Host "  Backing up git history..." -ForegroundColor Cyan
     Invoke-InDistro -DistroName $distro -AllowFailure `
         -Command "cd ~/workspace && git bundle create /tmp/$bundleName --all" | Out-Null

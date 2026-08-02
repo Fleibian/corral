@@ -45,10 +45,10 @@ $distro = Get-DistroName $Name
 if (-not (Test-WslAvailable)) { throw 'wsl.exe not found. Install WSL with: wsl --install' }
 
 if (-not (Test-Path $AgentDev.BaseImage)) {
-    throw "No base image at $($AgentDev.BaseImage). Build it first with: .\Build-BaseImage.ps1"
+    throw "No base image at $($AgentDev.BaseImage). Build it first with: corral build"
 }
 if (Test-WslDistro $distro) {
-    throw "Project '$Name' already exists. Open it with: .\Start-Project.ps1 $Name"
+    throw "Project '$Name' already exists. Open it with: corral open $Name"
 }
 
 $instanceDir = Join-Path $AgentDev.Instances $Name
@@ -133,7 +133,7 @@ Write-Host "  VS Code:        code --remote wsl+$distro /home/dev/workspace" -Fo
 Write-Host ''
 
 if ($NoLaunch) {
-    Write-Host "  Open it with: .\Start-Project.ps1 $Name" -ForegroundColor Yellow
+    Write-Host "  Open it with: corral open $Name" -ForegroundColor Yellow
     return
 }
 

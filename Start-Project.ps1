@@ -40,7 +40,7 @@ Assert-ProjectName $Name | Out-Null
 $distro = Get-DistroName $Name
 
 if (-not (Test-WslDistro $distro)) {
-    throw "No such project: '$Name'. Create it with: .\New-Project.ps1 $Name"
+    throw "No such project: '$Name'. Create it with: corral new $Name"
 }
 
 # A single argument with no spaces or shell operators. Start-Process does not
@@ -97,7 +97,7 @@ $process = Start-Process -FilePath $guiCommand.Source -PassThru -ArgumentList @(
 # behind another window.
 Start-Sleep -Milliseconds 2500
 if ($process.HasExited) {
-    throw "WezTerm exited immediately (code $($process.ExitCode)). Attach directly with: .\Start-Project.ps1 $Name -Shell"
+    throw "WezTerm exited immediately (code $($process.ExitCode)). Attach directly with: corral open $Name -Shell"
 }
 
 Write-Host "  Opened '$Name' in WezTerm." -ForegroundColor Green

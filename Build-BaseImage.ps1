@@ -150,4 +150,4 @@ $stopwatch.Stop()
 Write-Host ''
 Write-Host ("  Base image built in {0:N0} min: {1} ({2:N2} GB)" -f `
     $stopwatch.Elapsed.TotalMinutes, $AgentDev.BaseImage, ((Get-Item $AgentDev.BaseImage).Length / 1GB)) -ForegroundColor Green
-Write-Host '  Create a project with: .\New-Project.ps1 <name>' -ForegroundColor DarkGray
+Write-Host '  Create a project with: corral new <name>' -ForegroundColor DarkGray

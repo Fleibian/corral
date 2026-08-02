@@ -7,24 +7,22 @@ else on the machine.
 ## Usage
 
 ```powershell
-# Once, or whenever you want to refresh the toolchain
-C:\AgentDev\Build-BaseImage.ps1
-
-# Create a project and open it
-C:\AgentDev\New-Project.ps1 invoice-service
-
-# Open it again on any later day (this is the everyday command)
-C:\AgentDev\Start-Project.ps1 invoice-service
-
-# See what you have
-C:\AgentDev\Get-Project.ps1
-
-# Destroy it - backs up git history to Windows first
-C:\AgentDev\Remove-Project.ps1 invoice-service
-
-# Destroy a throwaway - leaves nothing behind
-C:\AgentDev\Remove-Project.ps1 scratch-test -NoBackup
+corral build                      # once, or to refresh the toolchain
+corral new invoice-service        # create a project and open it
+corral open invoice-service       # open it again (the everyday command)
+corral ls                         # see what you have
+corral rm invoice-service         # destroy it, bundling git history first
+corral rm scratch-test -NoBackup  # destroy a throwaway, keeping nothing
+corral help
 ```
+
+**Project names tab-complete.** `corral open <TAB>` cycles the projects you
+actually have, so nothing needs remembering or retyping. `corral <TAB>` lists
+the commands, and after a project name it offers that command's switches.
+
+Short forms work where you'd guess: `create`/`n` for `new`, `start`/`o` for
+`open`, `list`/`l` for `ls`, `remove`/`delete` for `rm`, `rebuild` for `build`.
+Bare `corral` lists your projects.
 
 `Start-Project` opens WezTerm on the Windows host attached to the instance,
 running Herdr in `~/workspace`, with `claude`, `codex` and `pi` on PATH. The
@@ -36,6 +34,31 @@ Your personal `~/.wezterm.lua` is never modified. `Start-Project` points
 (theme, font, opacity) and only adds the title handling - every other terminal
 you open behaves exactly as before.
 
+### Under the hood
+
+`corral` is a thin dispatcher - the `.ps1` scripts in the repository root are
+the implementation and stay callable directly, which is useful for scripting or
+for reading `Get-Help`:
+
+| Command | Script |
+|---|---|
+| `corral new` | `New-Project.ps1` |
+| `corral open` | `Start-Project.ps1` |
+| `corral ls` | `Get-Project.ps1` |
+| `corral rm` | `Remove-Project.ps1` |
+| `corral build` | `Build-BaseImage.ps1` |
+
+Switches pass straight through, so `corral rm x -NoBackup -Force` and
+`.\Remove-Project.ps1 x -NoBackup -Force` are the same call. `-WhatIf` works on
+`corral rm` and writes nothing at all.
+
+The module lives in `Corral\` and is loaded by one line in your PowerShell
+profile:
+
+```powershell
+Import-Module 'C:\AgentDev\Corral' -ErrorAction SilentlyContinue
+```
+
 ## Layout
 
 ```
@@ -46,6 +69,7 @@ C:\AgentDev\
 ├── Get-Project.ps1       list projects with state, disk usage, git status
 ├── Remove-Project.ps1    teardown; bundles history unless -NoBackup
 ├── Common.ps1            paths, name validation, WSL helpers
+├── Corral\               the `corral` command (module, loaded from your profile)
 ├── Instances\            per-project VHDX (one directory per project)
 ├── Projects\             git bundle backups written by Remove-Project
 ├── Cache\base\           downloaded rootfs + exported base image
@@ -133,7 +157,7 @@ some of them, so install one agent at a time. `SKILLS.md` has a working loop.
 ## Seeing what you have
 
 ```powershell
-C:\AgentDev\Get-Project.ps1
+corral ls
 ```
 
 ```
@@ -146,7 +170,7 @@ invoice-service stopped   3.26
 Add `-Detailed` for git state:
 
 ```powershell
-C:\AgentDev\Get-Project.ps1 -Detailed
+corral ls -Detailed
 ```
 
 ```
@@ -254,13 +278,16 @@ Mitigations:
 
 ```powershell
 # Default: bundle the history to Windows, then destroy
-C:\AgentDev\Remove-Project.ps1 invoice-service
+corral rm invoice-service
 
 # Throwaway: destroy it and leave nothing behind
-C:\AgentDev\Remove-Project.ps1 scratch-test -NoBackup
+corral rm scratch-test -NoBackup
 
 # Same, without the confirmation prompt
-C:\AgentDev\Remove-Project.ps1 scratch-test -NoBackup -Force
+corral rm scratch-test -NoBackup -Force
+
+# Show what would happen, changing nothing
+corral rm scratch-test -WhatIf
 ```
 
 Not every project is worth a bundle. Scratch and test instances would just

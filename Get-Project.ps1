@@ -43,7 +43,7 @@ $projects = Get-WslDistro |
 
 if (-not $projects) {
     Write-Host ''
-    Write-Host '  No projects yet. Create one with: .\New-Project.ps1 <name>' -ForegroundColor Yellow
+    Write-Host '  No projects yet. Create one with: corral new <name>' -ForegroundColor Yellow
     Write-Host ''
     return
 }
@@ -84,5 +84,5 @@ $table = $rows | Format-Table -AutoSize | Out-String
 
 Write-Host $table.TrimEnd()
 Write-Host ''
-Write-Host "  Open with: .\Start-Project.ps1 <name>" -ForegroundColor DarkGray
+Write-Host "  Open with: corral open <name>" -ForegroundColor DarkGray
 Write-Host ''
