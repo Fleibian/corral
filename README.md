@@ -21,7 +21,14 @@ C:\AgentDev\Remove-Project.ps1 invoice-service
 ```
 
 `Start-Project` opens WezTerm on the Windows host attached to the instance,
-running Herdr in `~/workspace`, with `claude`, `codex` and `pi` on PATH.
+running Herdr in `~/workspace`, with `claude`, `codex` and `pi` on PATH. The
+window is titled with the project name, so several open projects stay tellable
+apart on the taskbar.
+
+Your personal `~/.wezterm.lua` is never modified. `Start-Project` points
+`WEZTERM_CONFIG_FILE` at `provision\wezterm.lua`, which inherits your config
+(theme, font, opacity) and only adds the title handling - every other terminal
+you open behaves exactly as before.
 
 ## Why WSL2 rather than Windows Sandbox
 
@@ -58,11 +65,39 @@ daemon - Docker Desktop's WSL integration is deliberately not used, because a
 shared engine would let any agent reach every other project's containers and
 mount the host filesystem with `-v /:/host`.
 
-**Honest limitation:** all WSL2 distros share one utility VM and one kernel.
-Isolation between instances is namespace-based, not a per-VM boundary like
-Windows Sandbox had. It is a solid boundary against an agent doing something
-careless or a dependency misbehaving; it is not a hard security boundary
-against a determined kernel-level exploit.
+### What holds, and what does not
+
+**Isolation from the host is solid.** With `automount` and `interop` off there
+is no `/mnt/c`, no way to launch Windows binaries, and no path to your profile,
+Documents or SSH keys. The host filesystem is not a block device inside the WSL
+VM, so there is nothing to reach even as root. This has been verified directly.
+
+**Isolation between projects is not absolute.** All WSL2 distros share a single
+utility VM, and every instance's virtual disk is attached to it as a block
+device visible to all of them. Ordinary filesystem access is properly
+contained - one project cannot browse, list, or open another's files, and a
+non-root user cannot read the raw devices at all. But **root inside any
+instance can read every other instance's disk directly**, bypassing the
+filesystem entirely:
+
+```bash
+sudo debugfs -R "cat /home/dev/workspace/secret.txt" /dev/sde   # succeeds
+```
+
+This was tested, not assumed. It holds even after the other instance is
+terminated, because WSL leaves the disk attached for the lifetime of the VM.
+
+The agent has passwordless `sudo` and is in the `docker` group, so in practice
+the agent is root and this path is open to it. Removing `sudo` closes it - a
+non-root `dev` user genuinely cannot read the devices - but also removes the
+ability to install packages or use Docker.
+
+**So the accurate threat model is:** this reliably stops an agent from wandering
+into another project or the host through normal means, and it stops a
+misbehaving dependency. It does not stop a deliberately malicious root-capable
+process from reading a sibling project's disk. If two projects must not be able
+to reach each other under any circumstances, run only one at a time and
+`wsl --shutdown` between them, or use separate machines or VMs.
 
 ## Where project files live
 
@@ -175,12 +210,6 @@ Start Metro as usual with `npx expo start`.
 
 ## Known rough edges
 
-- **WezTerm window titles all read `wslhost.exe`.** With several projects open
-  they are hard to tell apart on the taskbar. WezTerm derives the title from
-  the foreground process and overrides an OSC title sequence set by the
-  launcher; `wezterm cli set-window-title` cannot reach the GUI socket either.
-  Fixable with a `format-window-title` handler in your personal
-  `~/.wezterm.lua`, which is deliberately left alone here.
 - **Agent login is once per project**, not once per session. The base image
   carries no credentials, so the first `claude` in a new instance prompts you.
   It then persists for the life of that instance.

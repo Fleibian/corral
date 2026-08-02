@@ -180,6 +180,13 @@ export PATH="$HOME/.local/bin:$PATH"
 
 cd "$HOME/workspace" 2>/dev/null || cd "$HOME"
 
+# Tell the terminal which project this is, so the window can be titled with the
+# project name instead of "wslhost.exe". This is a user var rather than an OSC
+# window title because herdr is a multiplexer and manages the pane title
+# itself - a title set here would be overwritten the moment it starts. The
+# instance hostname is the project name (set in /etc/wsl.conf).
+printf '\033]1337;SetUserVar=agentdev_project=%s\007' "$(printf '%s' "$(hostname)" | base64 -w0)"
+
 if command -v herdr >/dev/null 2>&1; then
     exec herdr
 fi

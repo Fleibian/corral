@@ -74,11 +74,22 @@ if (-not $guiCommand) {
     return
 }
 
+# An overlay config that inherits the user's own ~/.wezterm.lua and adds a
+# window title showing the project name. Set here rather than editing their
+# personal config, so every other terminal they open is unaffected.
+$overlayConfig = Join-Path $AgentDev.Provision 'wezterm.lua'
+if (Test-Path $overlayConfig) { $env:WEZTERM_CONFIG_FILE = $overlayConfig }
+
 # Run through `bash -lc` so the login profile is loaded before the launcher.
 # Each element is a single space-free token, which keeps Start-Process's
 # argument handling out of trouble.
+#
+# --always-new-process gives each project its own GUI process. Without it
+# WezTerm hands the command to an already-running instance, which would ignore
+# this config and put every project in one window.
 $process = Start-Process -FilePath $guiCommand.Source -PassThru -ArgumentList @(
-    'start', '--', 'wsl.exe', '-d', $distro, '--cd', '~/workspace', '--', 'bash', '-lc', $launcher
+    'start', '--always-new-process',
+    '--', 'wsl.exe', '-d', $distro, '--cd', '~/workspace', '--', 'bash', '-lc', $launcher
 )
 
 # Confirm it actually came up rather than reporting success on faith - a
