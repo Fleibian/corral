@@ -28,7 +28,11 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+# C:\Dotfiles is Archive\dotfiles-windows (the Windows profile trees).
+# C:\DotfilesShared is the repository's Dotfiles root, mapped only so the one
+# shared AGENTS.md stays the single source of truth for both implementations.
 $DotfilesRoot = 'C:\Dotfiles'
+$SharedRoot   = 'C:\DotfilesShared'
 $Workspace    = 'C:\Workspace'
 $CacheRoot    = 'C:\Cache'
 
@@ -272,9 +276,7 @@ Write-Step 'Dotfiles'
 
 # The dotfiles mirror the real profile layout, so deployment is a plain
 # recursive copy per root rather than a source-to-target mapping table.
-# C:\Dotfiles is the Dotfiles root (shared AGENTS.md at its top level); the
-# Windows-specific profile trees live under its windows\ subdirectory.
-$ProfileRoot = "$DotfilesRoot\windows"
+$ProfileRoot = $DotfilesRoot
 
 $dotfileTrees = @(
     @{ Source = "$ProfileRoot\profile";        Target = $env:USERPROFILE },
@@ -300,7 +302,7 @@ if (Test-Path $wpsProfile) { Write-Ok 'powershell profile installed for both edi
 
 Write-Step 'AGENTS.md fan-out'
 
-$globalAgents = "$DotfilesRoot\AGENTS.md"
+$globalAgents = "$SharedRoot\AGENTS.md"
 if (Test-Path $globalAgents) {
     # One source of truth, three agents. Claude Code reads CLAUDE.md; Codex and
     # Pi read AGENTS.md.

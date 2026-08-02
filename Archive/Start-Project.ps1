@@ -74,7 +74,7 @@ if ($MemoryMB -lt 2048) {
 foreach ($dir in @($AgentDev.Sandboxes, "$($AgentDev.Cache)\scoop", "$($AgentDev.Cache)\npm")) {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
 }
-foreach ($required in @($AgentDev.Dotfiles, $AgentDev.Bootstrap)) {
+foreach ($required in @($AgentDev.Dotfiles, $AgentDev.Bootstrap, $AgentDev.SharedDotfiles)) {
     if (-not (Test-Path $required)) { throw "Missing required directory: $required" }
 }
 
@@ -90,10 +90,13 @@ function New-MappedFolder {
 }
 
 $mappings = @(
-    (New-MappedFolder $projectPath              'C:\Workspace' $false),
-    (New-MappedFolder $AgentDev.Dotfiles        'C:\Dotfiles'  $true),
-    (New-MappedFolder $AgentDev.Bootstrap       'C:\Bootstrap' $true),
-    (New-MappedFolder $AgentDev.Cache           'C:\Cache'     $false)
+    (New-MappedFolder $projectPath              'C:\Workspace'       $false),
+    (New-MappedFolder $AgentDev.Dotfiles        'C:\Dotfiles'        $true),
+    # The single shared AGENTS.md, mapped separately so this implementation and
+    # the active WSL2 one keep reading the same file.
+    (New-MappedFolder $AgentDev.SharedDotfiles  'C:\DotfilesShared'  $true),
+    (New-MappedFolder $AgentDev.Bootstrap       'C:\Bootstrap'       $true),
+    (New-MappedFolder $AgentDev.Cache           'C:\Cache'           $false)
 ) -join "`n"
 
 $wsb = @"
@@ -130,7 +133,7 @@ Set-Content -Path $wsbPath -Value $wsb -Encoding utf8
 Write-Host ""
 Write-Host "  project   $projectPath"     -ForegroundColor Gray
 Write-Host "  config    $wsbPath"         -ForegroundColor Gray
-Write-Host "  mapped    C:\Workspace (rw), C:\Dotfiles (ro), C:\Bootstrap (ro), C:\Cache (rw)" -ForegroundColor DarkGray
+Write-Host "  mapped    C:\Workspace (rw), C:\Dotfiles (ro), C:\DotfilesShared (ro), C:\Bootstrap (ro), C:\Cache (rw)" -ForegroundColor DarkGray
 Write-Host ""
 
 if ($NoLaunch) {

@@ -46,8 +46,8 @@ Windows Sandbox permits only one running instance, so two agents could never
 work on two projects at the same time. That ceiling, plus paying twelve minutes
 per launch to rebuild a byte-identical filesystem, is what motivated the move.
 
-The Sandbox implementation is kept in `legacy\sandbox\` - working, but no
-longer maintained.
+The Sandbox implementation is kept in `Archive\` - working, but no longer
+maintained. See `Archive\README.md`, which also holds the original blueprint.
 
 ## Isolation
 
@@ -162,9 +162,9 @@ C:\AgentDev\
 │   └── project-AGENTS.md     seeded into each new project
 ├── Dotfiles\
 │   ├── AGENTS.md         single source of truth for agent instructions
-│   ├── wsl\              mirrors the Linux home directory
-│   └── windows\          used by the legacy Sandbox path
-└── legacy\sandbox\       Windows Sandbox implementation (unmaintained)
+│   └── wsl\              mirrors the Linux home directory
+└── Archive\              Windows Sandbox implementation (unmaintained)
+                          plus the original blueprint - see Archive\README.md
 ```
 
 `Dotfiles\wsl\` mirrors `$HOME`, so provisioning deploys it with one recursive
@@ -187,8 +187,10 @@ not reachable from an instance at all. Editing `Dotfiles\AGENTS.md` changes
 what *future* instances receive - rebuild the base image to propagate it, since
 existing projects keep the copy they were created with.
 
-The legacy Sandbox path reads the same source file. Projects additionally get
-their own `AGENTS.md` describing the instance environment.
+The archived Sandbox implementation reads the same source file - it is mapped
+into the sandbox at `C:\DotfilesShared` - so there is one AGENTS.md across
+both. Projects additionally get their own `AGENTS.md` describing the instance
+environment.
 
 ## What the base image contains
 

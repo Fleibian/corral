@@ -1,23 +1,30 @@
-# LEGACY - Windows Sandbox implementation. Superseded by the WSL2 scripts at
-# the repository root; kept working but no longer maintained. See README.md.
+# ARCHIVED - Windows Sandbox implementation. Superseded by the WSL2 scripts at
+# the repository root; kept working but no longer maintained. See
+# Archive\README.md.
 #
 # Shared paths and validation for New-Project.ps1 / Start-Project.ps1.
 # Dot-sourced, not a module - there is no state to manage.
 
-# This file lives at <root>\legacy\sandbox\, so the workspace root is two
-# levels up.
-$script:AgentDevRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
-$script:SandboxRoot  = Split-Path -Parent $PSCommandPath
+# This file lives at <root>\Archive\, so the workspace root is one level up.
+$script:AgentDevRoot = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
+$script:ArchiveRoot  = Split-Path -Parent $PSCommandPath
 
 $AgentDev = [pscustomobject]@{
     Root      = $script:AgentDevRoot
-    Projects  = Join-Path $script:AgentDevRoot 'Projects'
-    Sandboxes = Join-Path $script:AgentDevRoot 'Sandboxes'
-    Cache     = Join-Path $script:AgentDevRoot 'Cache'
-    Bootstrap = Join-Path $script:SandboxRoot 'Bootstrap'
-    # Maps the Dotfiles root rather than Dotfiles\windows, so the sandbox sees
-    # the same single AGENTS.md the WSL2 path uses.
-    Dotfiles  = Join-Path $script:AgentDevRoot 'Dotfiles'
+    # Everything this implementation owns stays inside Archive\. In particular
+    # its Projects directory is NOT the one at the repository root - that now
+    # holds git bundle backups for the WSL2 workflow, which is a different
+    # thing entirely that happens to share a name.
+    Projects  = Join-Path $script:ArchiveRoot 'Projects'
+    Sandboxes = Join-Path $script:ArchiveRoot 'Sandboxes'
+    Cache     = Join-Path $script:ArchiveRoot 'Cache'
+    Bootstrap = Join-Path $script:ArchiveRoot 'Bootstrap'
+    # The Windows profile trees this implementation deploys.
+    Dotfiles  = Join-Path $script:ArchiveRoot 'dotfiles-windows'
+    # The shared agent policy still lives with the active implementation, so
+    # there remains exactly one AGENTS.md for both. Mapped separately, because
+    # mapping the whole Dotfiles root would be pointlessly broad.
+    SharedDotfiles = Join-Path $script:AgentDevRoot 'Dotfiles'
 }
 
 # Windows device names are still special even with an extension, so a project
