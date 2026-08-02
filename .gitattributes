@@ -1,0 +1,21 @@
+# Line endings are load-bearing here. This repo is checked out on Windows,
+# where core.autocrlf=true rewrites text files to CRLF, but several of these
+# files are executed inside Linux instances. bash fails on a script with CRLF
+# endings - "bad interpreter: /usr/bin/env bash^M" or "$'\r': command not
+# found" - and WSL silently mis-parses a wsl.conf whose lines end in \r, which
+# would quietly disable the isolation settings.
+#
+# Default everything to LF, then opt PowerShell back into CRLF.
+* text=auto eol=lf
+
+# PowerShell scripts only ever run on the Windows host.
+*.ps1  text eol=crlf
+*.psd1 text eol=crlf
+*.psm1 text eol=crlf
+
+# Never touch these.
+*.tar    binary
+*.tar.gz binary
+*.bundle binary
+*.png    binary
+*.exe    binary
