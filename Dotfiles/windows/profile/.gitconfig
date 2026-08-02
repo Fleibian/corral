@@ -1,0 +1,9 @@
+[user]
+	name = Fleibian
+	email = Fleibian@users.noreply.github.com
+[init]
+	defaultBranch = master
+[core]
+	autocrlf = true
+[safe]
+	directory = C:/Workspace

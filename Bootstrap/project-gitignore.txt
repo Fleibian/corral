@@ -1,0 +1,26 @@
+# OS / editor noise
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+
+# Sandbox provisioning log, rewritten on every launch.
+.agentdev-bootstrap.log
+
+# Agent + tool state that should never be committed
+.claude/
+.codex/
+.pi/
+.opencode/
+.aider*
+
+# Common build output
+node_modules/
+dist/
+build/
+out/
+bin/
+obj/
+target/
+__pycache__/
+*.log
