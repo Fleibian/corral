@@ -106,13 +106,30 @@ Currently shipped: `.bashrc`, `.gitconfig`, `.config/nvim/`,
 `.config/starship.toml`, and `.config/herdr/config.toml` (Herdr keybindings -
 that is where Herdr looks on Linux, unlike `%APPDATA%\herdr\` on Windows).
 
-**Clipboard**: your Neovim config sets `clipboard = unnamedplus`, so `y` yanks
-to the system clipboard and `p` pastes from it. That needs a clipboard provider,
-which the image supplies via `wl-clipboard` - WSLg exposes a Wayland socket and
-bridges its clipboard to Windows, and this works even with interop disabled, so
-no `win32yank` or `/mnt/c` is involved. `xclip` is installed as the X11
-fallback. Without a provider Neovim silently uses its own registers, and yanks
-appear to do nothing.
+### Clipboard
+
+Your Neovim config sets `clipboard = unnamedplus`, so plain `y` yanks to the
+system clipboard and `p` pastes from it - shared with Windows in both
+directions.
+
+That needs a clipboard provider, which the image supplies via `wl-clipboard`.
+WSLg exposes a Wayland socket and bridges its clipboard to Windows, and this
+works even with interop disabled, so no `win32yank` and no `/mnt/c` are
+involved. `xclip` is installed as the X11 fallback. Without a provider Neovim
+silently falls back to its own registers and yanks appear to do nothing.
+
+| | |
+|---|---|
+| Yank from Neovim to the Windows clipboard | `y` |
+| Paste into a herdr pane | **`Ctrl+Shift+V`** |
+| Copy from a herdr pane | select with the mouse - herdr's `copy_on_select` is on by default |
+
+**`Ctrl+V` does not paste**, even though WezTerm lists `CTRL V` as
+`PasteFrom(Clipboard)`. herdr is a TUI and captures `ctrl+letter` chords for its
+own bindings, so it swallows the key first - tested, not assumed. This is left
+alone deliberately: binding it in `provision\wezterm.lua` would work, but
+WezTerm would then intercept `Ctrl+V` before Neovim ever saw it, costing
+blockwise visual mode.
 
 ## What's included
 
