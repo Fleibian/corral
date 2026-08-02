@@ -99,7 +99,12 @@ C:\AgentDev\
 
 `Dotfiles\wsl\` mirrors `$HOME`, so provisioning deploys it with one recursive
 copy. To add a dotfile, drop it at the path it should occupy in the home
-directory - no script change needed.
+directory - no script change needed, but rebuild the base image so new
+instances pick it up.
+
+Currently shipped: `.bashrc`, `.gitconfig`, `.config/nvim/`,
+`.config/starship.toml`, and `.config/herdr/config.toml` (Herdr keybindings -
+that is where Herdr looks on Linux, unlike `%APPDATA%\herdr\` on Windows).
 
 ## What's included
 
@@ -109,7 +114,7 @@ present the moment the instance opens - nothing installs on first use.
 | | |
 |---|---|
 | **Coding agents** | `claude`, `codex`, `pi` |
-| **Session** | `herdr` multiplexer; WezTerm runs on the Windows host and attaches |
+| **Session** | `herdr` multiplexer with your keybindings; WezTerm runs on the Windows host and attaches |
 | **Editor** | `nvim`, with your Neovim config and its plugin lockfile |
 | **Search** | `ripgrep`, `fd`, `fzf` |
 | **Shell** | `bash` with a `starship` prompt, `ll`/`gs` aliases, `ff` fuzzy directory jump, `dockerup` |
@@ -120,7 +125,7 @@ present the moment the instance opens - nothing installs on first use.
 | **Build** | `build-essential`, `pkg-config`, `jq`, `unzip`/`zip`/`xz` |
 | **Network** | `iproute2`, `ping`, `dig` |
 | **Agent skills** | not preinstalled - each project gets a `SKILLS.md` with the commands |
-| **Config** | your `AGENTS.md` fanned out to all three agents, plus `.gitconfig`, `starship.toml`, `.bashrc` |
+| **Config** | your `AGENTS.md` fanned out to all three agents, plus `.gitconfig`, `starship.toml`, `.bashrc`, `herdr/config.toml` |
 
 The `dev` user has passwordless `sudo`, so anything missing is one
 `sudo apt install` away - the instance is disposable, and installing into it is

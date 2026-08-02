@@ -206,6 +206,13 @@ if [ -d "$DOTFILES_SRC" ]; then
     # The wsl/ tree mirrors the home directory, so deployment is one copy.
     if [ -d "$DOTFILES_SRC/wsl" ]; then
         cp -r "$DOTFILES_SRC/wsl/." "$HOME_DIR/"
+        # The source sits on the Windows drive, which reports every file as
+        # executable, so a plain copy leaves config files at 755. Scoped to
+        # exactly the files just deployed - nothing else in the home directory
+        # is touched.
+        ( cd "$DOTFILES_SRC/wsl" && find . -type f -print ) | while read -r rel; do
+            chmod 0644 "$HOME_DIR/${rel#./}" 2>/dev/null || true
+        done
         ok "wsl dotfiles -> $HOME_DIR"
     fi
 

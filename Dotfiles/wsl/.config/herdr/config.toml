@@ -1,0 +1,18 @@
+onboarding = false
+[keys]
+prefix = "ctrl+y"
+focus_pane_left = "prefix+left"
+focus_pane_down = "prefix+down"
+focus_pane_up = "prefix+up"
+focus_pane_right = "prefix+right"
+split_horizontal = "prefix+h"
+split_vertical = "prefix+v"
+close_pane = "prefix+p"
+new_tab = "prefix+c"
+close_tab = "prefix+x"
+workspace_picker = "prefix+w"
+goto = "prefix+g"
+copy_mode = "prefix+y"
+
+[ui]
+agent_panel_sort = "spaces"
