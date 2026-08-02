@@ -151,10 +151,13 @@ fm        # cd to ~/firstmate and print how to launch
 claude    # or codex / pi - start the crew from inside that directory
 ```
 
-Firstmate normally expects your projects to live under its own `projects/`
-directory with one agent spanning them. That is the inverse of one instance per
-project, so here it supervises a single repo - its parallelism still applies,
-because the crew works in worktrees *within* that repo.
+The unit of work is a **task**, not a project: the crew runs several tasks at
+once against the same repo, each in its own git worktree, shipping PRs or
+returning scout reports. One project per firstmate is ordinary usage.
+
+Firstmate can also hold several clones under `projects/` and span them, but that
+capability simply goes unused here - instances are isolated, so a firstmate in
+one cannot reach another project.
 
 **Prerequisites are already in the image**: herdr 0.7.5 (which firstmate lists
 as a verified protocol-14 backend), `jq`, `python3`, `git`, `gh`, and the three
