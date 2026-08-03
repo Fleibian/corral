@@ -151,7 +151,7 @@ present the moment the instance opens - nothing installs on first use.
 | **Network** | `iproute2`, `ping`, `dig` |
 | **Parallel agents** | [firstmate](https://github.com/kunchenguid/firstmate) at `~/firstmate`, with this project registered under it |
 | **Agent skills** | not preinstalled - each project gets a `SKILLS.md` with the commands |
-| **Config** | your `AGENTS.md` fanned out to all three agents, plus `.gitconfig`, `starship.toml`, `.bashrc`, `herdr/config.toml` |
+| **Config** | your `AGENTS.md` fanned out to all three agents, plus `.gitconfig`, `starship.toml`, `.bashrc`, `herdr/config.toml`, `.pi/agent` |
 
 The `dev` user has passwordless `sudo`, so anything missing is one
 `sudo apt install` away - the instance is disposable, and installing into it is
@@ -201,6 +201,44 @@ the revision they were created with.
 
 `firstmate` is a reserved project name - firstmate labels its own primary home
 that, and a colliding label refuses new spawns.
+
+### Pi configuration
+
+`Dotfiles/wsl/.pi/agent` carries the pi setup from
+[kunchenguid/dotfiles](https://github.com/kunchenguid/dotfiles), described in
+[Kun's pi agent config](https://blog.kunchenguid.com/p/kuns-pi-agent-config).
+It deploys with the rest of the dotfiles, so every project gets it.
+
+| | |
+|---|---|
+| `settings.json` | `rose-pine-moon` theme, hidden thinking blocks, quiet startup, `steeringMode`/`followUpMode` set to `all`, and three pinned packages |
+| `models.json` | pins the `openai-codex` `gpt-5.6-*` context windows to 272k so compaction triggers before a surprise bill |
+| `themes/rose-pine-moon.json` | the colour scheme |
+| `extensions/terminal-status-title.js` | terminal title shows a spinner while pi works, then a completion mark |
+| `extensions/calm/` | `/calm` toggles a conversation-only view - hides collapsed thinking and built-in tool shells, replaces the working row with an animated boat. Off by default, presentation only |
+
+The three pinned packages are third-party and run with your full user
+permissions:
+
+- `npm:pi-web-access@0.14.0` - stock pi cannot search or browse the web
+- `npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6` - fast mode for GPT models
+- `git:github.com/algal/pi-openai-server-compaction@c6d5930` - **experimental**;
+  sends compaction and continuity data to OpenAI
+
+They are pinned to exact versions and one exact commit, so pi will not move them
+on its own. Changing a pin is a deliberate edit to `settings.json`, and the
+isolated disposable instance is a large part of why running them is reasonable
+here. To drop one, remove it from that file and rebuild.
+
+`corral build` installs all three into the base image rather than leaving pi to
+fetch them the first time it runs in each project. Pi's own runtime state -
+authentication, sessions, trust decisions - stays local to each instance and is
+not part of this config.
+
+Upstream verifies against pi 0.82.0; the base image currently ships 0.83.0. The
+API seams Calm patches are all still present, and if a future pi removes one,
+Calm logs a diagnostic and disables only that adapter. Run `/reload` after
+editing a local extension.
 
 ### Agent skills
 

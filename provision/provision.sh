@@ -263,11 +263,43 @@ fi
 
 chown -R "$DEV_USER:$DEV_USER" "$HOME_DIR"
 
+# ---------------------------------------------------------------- pi packages
+
+# The pi settings deployed above pin three third-party packages by exact
+# version or commit. Pi installs anything missing on its first startup, so this
+# step is only about *when* that happens: doing it here bakes them into the
+# base image, which keeps project creation offline-capable and drops a ~15s
+# stall off the first `pi` run in every project. The pins are immutable, so a
+# baked copy and a freshly fetched one are the same code either way.
+#
+# `pi --help` is the cheapest command that still triggers package resolution.
+log "Pi packages"
+if [ -f "$HOME_DIR/.pi/agent/settings.json" ]; then
+    su - "$DEV_USER" -c '
+        export NVM_DIR="$HOME/.nvm"
+        . "$NVM_DIR/nvm.sh"
+        pi --help >/dev/null 2>/tmp/pi-warm.log
+    ' || true
+    # Judge by what actually landed, not by exit code - pi returns 0 whether or
+    # not a package resolved.
+    if su - "$DEV_USER" -c '
+        export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; pi list 2>/dev/null
+    ' | grep -q "$HOME_DIR/.pi/agent"; then
+        ok "pinned pi packages resolved"
+    else
+        warn "pi packages did not resolve - they will install on first run:"
+        tail -3 /tmp/pi-warm.log 2>/dev/null | sed 's/^/         /'
+    fi
+    chown -R "$DEV_USER:$DEV_USER" "$HOME_DIR/.pi"
+else
+    warn "no pi settings.json - skipping package warm-up"
+fi
+
 # ------------------------------------------------------------------- cleanup
 
 log "Cleanup"
 apt-get clean
-rm -rf /var/lib/apt/lists/* /tmp/npm-*.log
+rm -rf /var/lib/apt/lists/* /tmp/npm-*.log /tmp/pi-warm.log
 ok "apt caches removed"
 
 # Note: cleaning /mnt here would be pointless. The build distro has automount
