@@ -497,6 +497,36 @@ Note that `.wslconfig` is global - it applies to your existing `Ubuntu` and
 
 Start Metro as usual with `npx expo start`.
 
+## Logging an agent in
+
+Interop is off, so an agent cannot open a Windows browser. It prints the OAuth
+URL instead; you open it on Windows, authorise, and the browser is redirected to
+a callback the agent is listening for inside the instance.
+
+**That redirect will hang, and the URL is misleading about why.** It points at
+`http://localhost:<port>/callback?...`. Windows resolves `localhost` to the IPv6
+`::1` before `127.0.0.1`, and the agent's callback server binds IPv4 only, so the
+browser connects to nothing.
+
+Edit the address bar, replace `localhost` with `127.0.0.1`, and press enter:
+
+```
+http://localhost:53692/callback?code=...     hangs
+http://127.0.0.1:53692/callback?code=...     works
+```
+
+Mirrored networking already bridges the loopback - a listener inside an instance
+answers on the host's `127.0.0.1` at the same port. Only the name resolution is
+wrong. Codes are single-use and short-lived, so if one expires, start the login
+again and swap the host on the fresh URL.
+
+`claude setup-token` avoids the problem entirely: it redirects to
+`platform.claude.com` rather than a local port, shows a code in the browser, and
+you paste that into the terminal. Nothing has to reach back into the instance.
+
+`gh auth login` is unaffected - it uses the device-code flow, where you type a
+code at `github.com/login/device` and no callback comes back to you.
+
 ## Known rough edges
 
 - **Agent login is once per project**, not once per session. The base image
