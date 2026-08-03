@@ -11,5 +11,7 @@ Cache/
 # Upstream reference clone (kunchenguid/dotfiles), re-clonable.
 Dotfiles/source/
 
-# Agent session state for work done on this repo itself.
-.claude/
+# Agent session state for work done on this repo itself. Anchored to the root:
+# unanchored, it also matches Dotfiles/wsl/.claude/, which is deployed config
+# that must be tracked. A clone would silently build an image without it.
+/.claude/

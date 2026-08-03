@@ -151,7 +151,7 @@ present the moment the instance opens - nothing installs on first use.
 | **Network** | `iproute2`, `ping`, `dig` |
 | **Parallel agents** | [firstmate](https://github.com/kunchenguid/firstmate) at `~/firstmate`, with this project registered under it |
 | **Agent skills** | not preinstalled - each project gets a `SKILLS.md` with the commands |
-| **Config** | your `AGENTS.md` fanned out to all three agents, plus `.gitconfig`, `starship.toml`, `.bashrc`, `herdr/config.toml`, `.pi/agent` |
+| **Config** | your `AGENTS.md` fanned out to all three agents, plus `.gitconfig`, `starship.toml`, `.bashrc`, `herdr/config.toml`, `.pi/agent`, `.claude/settings.json` |
 
 The `dev` user has passwordless `sudo`, so anything missing is one
 `sudo apt install` away - the instance is disposable, and installing into it is
@@ -201,6 +201,21 @@ the revision they were created with.
 
 `firstmate` is a reserved project name - firstmate labels its own primary home
 that, and a colliding label refuses new spawns.
+
+### Claude configuration
+
+`Dotfiles/wsl/.claude/settings.json` comes from the same
+[dotfiles](https://github.com/kunchenguid/dotfiles): the `dark-ansi` theme and a
+status line showing the model and how much of the context window is used.
+
+The status line is a shell command reading Claude's JSON payload from stdin, so
+it depends on `jq` - which is in the base image. If a Claude release stops
+sending `context_window.used_percentage`, the `// empty` fallback drops the
+percentage and keeps the model name rather than breaking the line.
+
+This file is settings only. Credentials, sessions and trust decisions stay local
+to each instance, and `CLAUDE.md` is written separately from your one
+`AGENTS.md` - see [One AGENTS.md, three agents](#one-agentsmd-three-agents).
 
 ### Pi configuration
 
