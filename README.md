@@ -95,6 +95,7 @@ C:\AgentDev\
 └── Dotfiles\
     ├── AGENTS.md         single source of truth for agent instructions
     └── wsl\              mirrors the Linux home directory
+        └── .agents\skills\onepassword\   the secrets skill, shared by all three agents
 ```
 
 `Dotfiles\wsl\` mirrors `$HOME`, so provisioning deploys it with one recursive
@@ -103,8 +104,10 @@ directory - no script change needed, but rebuild the base image so new
 instances pick it up.
 
 Currently shipped: `.bashrc`, `.gitconfig`, `.config/nvim/`,
-`.config/starship.toml`, and `.config/herdr/config.toml` (Herdr keybindings -
-that is where Herdr looks on Linux, unlike `%APPDATA%\herdr\` on Windows).
+`.config/starship.toml`, `.config/herdr/config.toml` (Herdr keybindings - that
+is where Herdr looks on Linux, unlike `%APPDATA%\herdr\` on Windows), and
+`.agents/skills/onepassword/` (the [secrets](#secrets) skill, symlinked into all
+three agents by `provision.sh`).
 
 ### Clipboard
 
@@ -144,13 +147,14 @@ present the moment the instance opens - nothing installs on first use.
 | **Search** | `ripgrep`, `fd`, `fzf` |
 | **Shell** | `bash` with a `starship` prompt, `ll`/`gs` aliases, `ff` fuzzy directory jump, `dockerup` |
 | **Version control** | `git`, `gh` (GitHub CLI, for pushing) |
+| **Secrets** | `op-env` injects a 1Password Environment into a command; agents use secrets without seeing values - see [Secrets](#secrets) |
 | **Node** | `nvm` with the current LTS and `corepack`, so a project can pin its own version |
 | **Containers** | Docker engine with `compose` and `buildx`, its own daemon per instance (`dockerup` starts it) |
 | **Python** | `python3` with `venv` and `pip` |
 | **Build** | `build-essential`, `pkg-config`, `jq`, `unzip`/`zip`/`xz` |
 | **Network** | `iproute2`, `ping`, `dig` |
 | **Parallel agents** | [firstmate](https://github.com/kunchenguid/firstmate) at `~/firstmate`, with this project registered under it |
-| **Agent skills** | not preinstalled - each project gets a `SKILLS.md` with the commands |
+| **Agent skills** | `onepassword` is shipped; the rest are not preinstalled - each project gets a `SKILLS.md` with the commands |
 | **Config** | your `AGENTS.md` fanned out to all three agents, plus `.gitconfig`, `starship.toml`, `.bashrc`, `herdr/config.toml`, `.pi/agent`, `.claude/settings.json` |
 
 The `dev` user has passwordless `sudo`, so anything missing is one
@@ -226,17 +230,20 @@ It deploys with the rest of the dotfiles, so every project gets it.
 
 | | |
 |---|---|
-| `settings.json` | `rose-pine-moon` theme, hidden thinking blocks, quiet startup, `steeringMode`/`followUpMode` set to `all`, and three pinned packages |
+| `settings.json` | `rose-pine-moon` theme, hidden thinking blocks, quiet startup, `steeringMode`/`followUpMode` set to `all`, and four pinned packages |
 | `models.json` | pins the `openai-codex` `gpt-5.6-*` context windows to 272k so compaction triggers before a surprise bill |
 | `themes/rose-pine-moon.json` | the colour scheme |
 | `extensions/terminal-status-title.js` | terminal title shows a spinner while pi works, then a completion mark |
 | `extensions/calm/` | `/calm` toggles a conversation-only view - hides collapsed thinking and built-in tool shells, replaces the working row with an animated boat. Off by default, presentation only |
 
-The three pinned packages are third-party and run with your full user
+The four pinned packages are third-party and run with your full user
 permissions:
 
 - `npm:pi-web-access@0.14.0` - stock pi cannot search or browse the web
 - `npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6` - fast mode for GPT models
+- `npm:pi-mcp-extension@1.5.0` - lets pi connect to MCP servers, which it cannot
+  do out of the box. Claude and Codex already speak MCP natively. Note this does
+  **not** provide 1Password access - see [Secrets](#secrets) for why
 - `git:github.com/algal/pi-openai-server-compaction@c6d5930` - **experimental**;
   sends compaction and continuity data to OpenAI
 
@@ -245,7 +252,7 @@ on its own. Changing a pin is a deliberate edit to `settings.json`, and the
 isolated disposable instance is a large part of why running them is reasonable
 here. To drop one, remove it from that file and rebuild.
 
-`corral build` installs all three into the base image rather than leaving pi to
+`corral build` installs all four into the base image rather than leaving pi to
 fetch them the first time it runs in each project. Pi's own runtime state -
 authentication, sessions, trust decisions - stays local to each instance and is
 not part of this config.
@@ -257,8 +264,9 @@ editing a local extension.
 
 ### Agent skills
 
-Skills are **not** installed automatically. Every new project gets a
-`SKILLS.md` in its workspace listing what to install and the commands to run:
+With one exception, skills are **not** installed automatically. Every new project
+gets a `SKILLS.md` in its workspace listing what to install and the commands to
+run:
 
 ```bash
 npx skills add kunchenguid/chrome-devtools-axi --skill chrome-devtools-axi -g
@@ -273,6 +281,11 @@ project-scoped and needs running in each new project. `skills list` and
 This is a deliberate choice, not a limitation - automating it worked, but
 installing by hand keeps project creation at ~40s with no network dependency,
 and lets you pick skills per project.
+
+The exception is `onepassword`, which is shipped in the image. The rule above is
+about optional, network-fetched, per-project picks; that skill is local, adds no
+round-trip, and describes how this instance handles secrets - the same category
+as `AGENTS.md`. See [Secrets](#secrets).
 
 To change the list, edit `provision\project-SKILLS.md`. New projects pick it
 up; existing ones keep the copy they were created with.
@@ -465,6 +478,144 @@ project untouched. `gh repo create` also works for publishing a new project.
 
 The project `AGENTS.md` tells agents to commit freely but to leave pushing to
 you.
+
+## Secrets
+
+Agents here can **use** every secret a project is entitled to, and **read** none
+of them. Values are injected into the process that needs them and never pass
+through the agent's context.
+
+```bash
+op-env -- npm run dev      # runs with the project's 1Password Environment loaded
+op-env --names             # STRIPE_SECRET_KEY, DATABASE_URL, ...  (names only)
+op-env --status            # which Environment this project is wired to
+```
+
+There is no `op://` reference file to maintain and nothing secret in the repo.
+The unit of access is a **1Password Environment** - a named set of environment
+variables you manage in the 1Password app.
+
+### How it works
+
+`op-env` re-enters as root just long enough for `op run` to resolve the
+Environment, then drops back to the agent's own uid to exec the command. The
+command lands with the variables in its environment and **without** the token
+that fetched them:
+
+```
+op-env -- npm run dev
+  └─ sudo → op run --environment <id> --      (root; reads root-owned token)
+       └─ setpriv --reuid=dev → env -u OP_SERVICE_ACCOUNT_TOKEN
+            └─ npm run dev                    (uid dev; secrets yes, token no)
+```
+
+The token lives at `/etc/agentdev/op/token`, mode `0400`, owned by root. It is
+never in a shell environment, never in the agent's home directory, and stripped
+from the child process. `op run` stays the parent, so its output masking still
+applies - a secret echoed by the command comes out as
+`<concealed by 1Password>`.
+
+Verified in a live instance: the child runs as `dev`, keeps its `docker` group,
+sees the injected variables, and gets `Permission denied` on the token file.
+
+**What this is and is not.** It removes the entire `op read` surface and every
+accidental leak - an agent that never receives a value cannot print one, log
+one, or commit one. It is *not* a boundary that survives an adversarial agent:
+the `dev` user has passwordless `sudo`, so a deliberate `sudo cat` of the token
+still works. That is the same tradeoff already documented under
+[Isolation](#isolation), where the agent is effectively root.
+
+To make it absolute, replace the blanket rule in `provision.sh` with an
+allowlist that excludes the token path:
+
+```sh
+# instead of:  dev ALL=(ALL) NOPASSWD:ALL
+dev ALL=(root) NOPASSWD: /usr/local/libexec/op-env-run, \
+                         /usr/local/libexec/op-store-token, \
+                         /usr/bin/apt-get, /bin/systemctl start docker
+```
+
+The cost is that anything needing unanticipated root access fails until you
+extend the list, which is why it is not the default.
+
+### Why not the 1Password MCP server
+
+Reasonable first instinct - an MCP server that never returns values is exactly
+the right shape, and 1Password ships one. **It cannot work here**, and the
+reason is worth recording so it is not re-litigated:
+
+- It is **not part of the CLI**. `op mcp-server` does not exist in stable
+  (2.38.1) or beta (2.38.2-beta.01) - both binaries were checked directly.
+- It is a separate `1password-mcp` binary **supplied by the 1Password desktop
+  app**, switched on at Settings > Labs, and every call needs an approval prompt
+  in that app. With `interop.enabled=false` and no `/mnt/c`, an instance has no
+  route to it.
+- Bridging it from the host would not help. Its "run with credentials" tool
+  injects into a **Windows** process; the project's app runs in Linux.
+
+Something inside the instance has to place the secret into a Linux process, and
+`op` is the only thing that can. `op-env` reproduces the property that made the
+MCP server attractive - values never reach the agent - using the piece that
+actually runs here.
+
+`pi-mcp-extension` is installed regardless, so pi can use other MCP servers;
+Claude and Codex support MCP natively.
+
+### The beta channel is required
+
+`provision.sh` pulls `1password-cli` from the **beta** apt channel, not stable.
+1Password Environments - `op environment read` and `op run --environment` - are
+absent from stable 2.38.1 and present in beta 2.38.2-beta.01. Since Environments
+are the unit of access, beta is not optional. Pinning back to `stable main` in
+`provision.sh` removes the feature entirely.
+
+### Setting up a project
+
+Once, in the 1Password app on Windows:
+
+1. **Developer > View Environments > New environment**, and add the project's
+   variables (or import an existing `.env`).
+2. **Manage environment > Copy environment ID.**
+3. Create a service account with access to it:
+
+```powershell
+op service-account create corral-invoice-service --vault "corral-invoice-service:read_items"
+```
+
+Service accounts **cannot** be granted the built-in Personal, Private, Employee
+or default Shared vault, so a purpose-made vault per project is required rather
+than merely tidy. The token prints **once** - save it in 1Password.
+
+Then, inside the instance:
+
+```bash
+op-login            # asks for the Environment ID, then the token (hidden)
+```
+
+`op-login` never echoes the token and never passes it as an argument, so it
+stays out of `~/.bash_history` and `/proc/*/cmdline`; it is piped straight to a
+root helper that verifies it against the Environment before storing. A bad paste
+fails immediately rather than breaking the agent's first command.
+
+Pasting the token **is** the act of choosing which environment a project gets -
+scope is enforced by 1Password on the server, not by anything in the instance an
+agent could edit. Like `gh auth login`, it is once per instance, and rebuilding
+the base image does not carry tokens into it.
+
+### What the agents know
+
+Every instance ships a `onepassword` skill, linked into all three agents' skill
+directories from one payload at `~/.agents/skills/onepassword/`. It covers
+`op-env`, states plainly that plain `op` will fail and that this is intended
+rather than a fault to fix, and rules out reading the token with `sudo`.
+
+It also tells an agent that cannot reach a secret to **ask you to run
+`op-login`** - the same way it is told to ask you to run `gh auth login` - rather
+than hardcoding a credential or quietly disabling the code path that needed it.
+
+Edit it at `Dotfiles\wsl\.agents\skills\onepassword\SKILL.md` and rebuild the
+base image to propagate.
+
 
 ## One AGENTS.md, three agents
 

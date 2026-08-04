@@ -7,6 +7,14 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
 
+# Deliberately absent: OP_SERVICE_ACCOUNT_TOKEN.
+#
+# Secrets reach a process through `op-env -- <command>`, which resolves them as
+# root and drops back to this user before exec'ing. Exporting the token here
+# would hand every shell - and so the agent - the ability to `op read` any
+# secret the service account can see, which is the exact thing the setup exists
+# to prevent. `op-env --names` lists what is available without values.
+
 case $- in
     *i*) ;;
       *) return;;

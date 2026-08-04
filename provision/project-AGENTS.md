@@ -35,6 +35,14 @@ You are inside a dedicated WSL2 instance created for this project alone.
   around it or add credentials by other means.
 - Do not push unless the user asks. Committing is yours to do freely; sending
   code to a remote is their call.
+- Secrets come from 1Password, never from the project tree, and you never see
+  their values. Run anything that needs a credential as `op-env -- <command>`;
+  it injects this project's 1Password Environment into that command alone.
+  `op-env --names` lists what is available, without values. There is no token in
+  your environment, so plain `op` will fail - that is intended, not a fault to
+  fix, and reading the root-owned token with `sudo` is out of bounds. If `op-env`
+  reports it is not configured, ask the user to run `op-login` rather than
+  hardcoding a credential. The `onepassword` skill has the details.
 - Node is managed by `nvm`; run `nvm use` if the project pins a version.
 - For Expo, start Metro with `npx expo start`. Networking is mirrored from the
   host, so a phone on the same Wi-Fi can reach it directly.
