@@ -34,6 +34,7 @@ apt-get install -y -qq --no-install-recommends \
     python3 python3-venv python3-pip \
     sudo locales tzdata tmux \
     wl-clipboard xclip \
+    bubblewrap \
     iproute2 iputils-ping dnsutils \
     watchman 2>/dev/null || \
 apt-get install -y -qq --no-install-recommends \
@@ -41,7 +42,7 @@ apt-get install -y -qq --no-install-recommends \
     git openssh-client build-essential pkg-config \
     unzip zip xz-utils ripgrep fd-find fzf neovim jq \
     python3 python3-venv python3-pip sudo locales tzdata \
-    iproute2 iputils-ping dnsutils
+    bubblewrap iproute2 iputils-ping dnsutils
 ok "apt packages"
 
 # wl-clipboard is what makes Neovim's `clipboard=unnamedplus` actually reach
@@ -50,6 +51,10 @@ ok "apt packages"
 # disabled, so no win32yank and no /mnt/c are needed. xclip is the fallback for
 # the X11 path, since without either Neovim silently falls back to its own
 # registers and yanks appear to do nothing.
+
+# bubblewrap is Codex's sandbox. Without bwrap on PATH it warns on every start
+# and falls back to the copy vendored in its npm package, which then goes stale
+# independently of the distro's security updates.
 
 # Debian/Ubuntu ship fd as fdfind to avoid a name clash; everyone expects fd.
 if [ -x /usr/bin/fdfind ] && [ ! -e /usr/local/bin/fd ]; then

@@ -138,7 +138,7 @@ present the moment the instance opens - nothing installs on first use.
 
 | | |
 |---|---|
-| **Coding agents** | `claude`, `codex`, `pi` |
+| **Coding agents** | `claude`, `codex`, `pi`, plus `bubblewrap` for Codex's sandbox |
 | **Session** | `herdr` multiplexer with your keybindings; WezTerm runs on the Windows host and attaches |
 | **Editor** | `nvim`, with your Neovim config and its plugin lockfile; `y` yanks straight to the Windows clipboard |
 | **Search** | `ripgrep`, `fd`, `fzf` |
