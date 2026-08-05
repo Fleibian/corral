@@ -145,6 +145,163 @@ groupadd -f kvm
 usermod -aG kvm "$DEV_USER"
 ok "kvm group (emulator can run in-instance; SDK installed per project)"
 
+log "android-setup helper"
+# The SDK is ~10 GB and stays out of the image - ten projects would be 60 GB of
+# mostly-unused Android tooling. But making a project Android-capable by hand is
+# six steps with two traps that fail confusingly, so the steps live here as one
+# command instead of in someone's memory. Costs a few KB in the image.
+cat > /usr/local/bin/android-setup <<'ANDROIDSETUP'
+#!/usr/bin/env bash
+# Make THIS instance able to build and run Android.
+#
+#   android-setup            # API 36, AVD named after the project
+#   android-setup 35         # a different API level
+#   android-setup 36 tablet  # a different AVD name
+#   android-setup --check    # report what is present, install nothing
+#
+# The emulator runs here rather than on Windows: WSL2 exposes /dev/kvm and WSLg
+# shows the window on the Windows desktop, so source, Metro, adb and the device
+# stay on one side of the boundary. A Windows-side emulator cannot even read
+# this project - the isolation settings block \\wsl.localhost.
+set -euo pipefail
+
+API="${1:-36}"
+[ "${1:-}" = "--check" ] && API=36
+AVD="${2:-$(hostname)}"
+SDK="$HOME/Android/Sdk"
+JDK=/usr/lib/jvm/java-17-openjdk-amd64
+IMAGE="system-images;android-${API};google_apis;x86_64"
+
+log()  { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
+ok()   { printf '    \033[0;32mOK\033[0m   %s\n' "$*"; }
+warn() { printf '    \033[0;33mWARN\033[0m %s\n' "$*"; }
+
+if [ "${1:-}" = "--check" ]; then
+    echo "Android status in $(hostname):"
+    for t in java adb emulator sdkmanager avdmanager; do
+        printf '  %-12s ' "$t"
+        command -v "$t" >/dev/null 2>&1 && echo present || echo absent
+    done
+    printf '  %-12s ' "kvm"
+    if id -nG | grep -qw kvm && [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
+        echo "usable"
+    else
+        echo "NOT usable (group membership needs a fresh login)"
+    fi
+    printf '  %-12s ' "sdk"
+    [ -d "$SDK" ] && du -sh "$SDK" 2>/dev/null | cut -f1 || echo absent
+    exit 0
+fi
+
+# ---------------------------------------------------------------- prereqs
+log "KVM access"
+# /dev/kvm is root:kvm 0660, so membership is the whole requirement. New
+# projects get this from the base image; older instances may predate it.
+if ! id -nG | grep -qw kvm; then
+    sudo groupadd -f kvm
+    sudo usermod -aG kvm "$USER"
+    warn "added $USER to the kvm group - open a NEW shell before launching the emulator"
+else
+    ok "already in the kvm group"
+fi
+if [ ! -e /dev/kvm ]; then
+    warn "/dev/kvm is missing - nested virtualisation is off; the emulator will be very slow"
+fi
+
+log "JDK and emulator runtime libraries"
+export DEBIAN_FRONTEND=noninteractive
+sudo apt-get update -qq
+# libxkbfile1 is the trap: without it the emulator's qemu binary dies with
+# "error while loading shared libraries" and no other diagnostic. The rest are
+# the Qt/X/GL set the emulator UI needs to render through WSLg.
+sudo apt-get install -y -qq --no-install-recommends \
+    openjdk-17-jdk-headless unzip \
+    libxkbfile1 libxkbcommon0 libxkbcommon-x11-0 \
+    libpulse0 libnss3 libxcursor1 libxdamage1 libxcomposite1 libxi6 \
+    libxtst6 libasound2t64 libgl1 libglx-mesa0 libglu1-mesa libxrandr2 \
+    libxrender1 libxext6 libx11-xcb1 libdbus-1-3 libfontconfig1 \
+    libsm6 libice6 >/dev/null
+ok "$(java -version 2>&1 | head -1)"
+
+# ------------------------------------------------------------ command line
+log "Android command-line tools"
+export JAVA_HOME="$JDK"
+export ANDROID_HOME="$SDK" ANDROID_SDK_ROOT="$SDK"
+export PATH="$SDK/cmdline-tools/latest/bin:$SDK/platform-tools:$SDK/emulator:$PATH"
+
+if [ ! -x "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
+    mkdir -p "$SDK/cmdline-tools"
+    # Google publishes no "latest" URL, so read the build out of the repo
+    # manifests. Sort NUMERICALLY on the build number - as text, 9862592 sorts
+    # after 15859902 and you silently install a two-year-old toolchain.
+    zip=$(for m in repository2-1.xml repository2-2.xml repository2-3.xml; do
+            curl -fsSL "https://dl.google.com/android/repository/$m" 2>/dev/null \
+              | grep -o 'commandlinetools-linux-[0-9]*_latest\.zip'
+          done | sed -E 's/.*-([0-9]+)_latest\.zip/\1 &/' | sort -n | tail -1 | cut -d' ' -f2)
+    [ -n "$zip" ] || { echo "could not discover cmdline-tools URL" >&2; exit 1; }
+    curl -fsSL -o /tmp/ct.zip "https://dl.google.com/android/repository/$zip"
+    rm -rf /tmp/ct && unzip -q /tmp/ct.zip -d /tmp/ct
+    mv /tmp/ct/cmdline-tools "$SDK/cmdline-tools/latest"
+    rm -rf /tmp/ct /tmp/ct.zip
+fi
+# Two traps in one line: sdkmanager writes its deprecation banner AND the
+# version to stderr (so 2>/dev/null prints nothing), and it emits a trailing
+# blank line (so `tail -1` prints that instead of the version). Take the last
+# non-empty line.
+ok "sdkmanager $(sdkmanager --version 2>&1 | awk 'NF{v=$0} END{print v}')"
+
+yes 2>/dev/null | sdkmanager --licenses >/dev/null 2>&1 || true
+ok "licences accepted"
+
+# -------------------------------------------------------------- sdk itself
+log "SDK packages for API $API (~2 GB, several minutes)"
+sdkmanager --install "platform-tools" "emulator" \
+    "platforms;android-${API}" "build-tools;${API}.0.0" "$IMAGE" \
+    >/tmp/android-setup.log 2>&1 \
+    || { warn "sdkmanager failed:"; tail -5 /tmp/android-setup.log; exit 1; }
+ok "platform-tools, emulator, platform $API, build-tools, system image"
+
+# --------------------------------------------------------------------- avd
+log "AVD '$AVD'"
+if avdmanager list avd 2>/dev/null | grep -q "Name: ${AVD}$"; then
+    ok "already exists"
+else
+    echo no | avdmanager create avd -n "$AVD" -k "$IMAGE" -d pixel_7 >/dev/null 2>&1
+    ok "created (pixel_7, API $API)"
+fi
+
+# ------------------------------------------------------------ verification
+log "Verifying acceleration"
+# `usermod -aG` does not affect the shell it runs in, so on a first run the
+# plain check fails even though everything succeeded - ending a good run on a
+# warning that reads like a failure. `sg kvm -c` applies the new group
+# immediately, so the script can confirm KVM for real instead of deferring it.
+accel=$(emulator -accel-check 2>&1 || true)
+case "$accel" in
+    *"is installed and usable"*) ;;
+    *) accel=$(sg kvm -c "$SDK/emulator/emulator -accel-check" 2>&1 || true) ;;
+esac
+if printf '%s' "$accel" | grep -qi 'is installed and usable'; then
+    ok "$(printf '%s' "$accel" | grep -i 'is installed and usable' | head -1)"
+else
+    warn "KVM is not usable. Open a NEW shell (group membership only applies to"
+    warn "new logins) and re-check with:  android-setup --check"
+fi
+
+cat <<EOF
+
+  Launch it:      emulator -avd ${AVD} -gpu auto &
+  Then:           adb devices
+  Build and run:  cd ~/workspace && npx expo run:android
+
+  The emulator window appears on the Windows desktop through WSLg. Metro,
+  adb and the device are all inside this instance, so no adb reverse and no
+  127.0.0.1-versus-localhost problems.
+EOF
+ANDROIDSETUP
+chmod 0755 /usr/local/bin/android-setup
+ok "android-setup"
+
 # -------------------------------------------------------------------- agents
 
 log "Coding agents"
