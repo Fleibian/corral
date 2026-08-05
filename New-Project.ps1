@@ -14,8 +14,11 @@
 
     Project files live on ext4 inside the instance. That is deliberate:
     cross-OS file access via drvfs is WSL's slowest path, and React Native's
-    Metro bundler plus a large node_modules make it painful. Browse the files
-    from Windows at \\wsl.localhost\agentdev-<name>\home\dev\workspace.
+    Metro bundler plus a large node_modules make it painful.
+
+    Note that \\wsl.localhost\agentdev-<name>\ does NOT resolve - the isolation
+    settings below also stop WSL serving the filesystem to Windows. Move files
+    with wsl.exe instead; see "Moving files in and out" in the README.
 
 .PARAMETER Name
     Project name. Becomes the distro 'agentdev-<name>'.
@@ -164,11 +167,15 @@ if (Test-Path $skillSource) {
 }
 Invoke-InDistro -DistroName $distro -Command $seed | Out-Null
 Write-Host '  workspace  ~/workspace initialised with git' -ForegroundColor Gray
-Write-Host '  skills     not installed - see SKILLS.md in the workspace' -ForegroundColor Gray
+Write-Host '  skills     onepassword installed; the rest are in SKILLS.md' -ForegroundColor Gray
 
 Write-Host ''
-Write-Host "  Windows access: \\wsl.localhost\$distro\home\dev\workspace" -ForegroundColor DarkGray
-Write-Host "  VS Code:        code --remote wsl+$distro /home/dev/workspace" -ForegroundColor DarkGray
+# Deliberately not advertising \\wsl.localhost - the isolation settings stop WSL
+# serving the filesystem to Windows, so that path does not resolve. Printing it
+# would send people to a dead end on every project they create.
+Write-Host "  VS Code:   code --remote wsl+$distro /home/dev/workspace" -ForegroundColor DarkGray
+Write-Host "  Copy a file in:" -ForegroundColor DarkGray
+Write-Host "    cmd /c `"wsl.exe -d $distro -u dev -- bash -c `"`"cat > /home/dev/workspace/f.zip`"`" < `"`"C:\path\f.zip`"`"`"" -ForegroundColor DarkGray
 Write-Host ''
 
 if ($NoLaunch) {

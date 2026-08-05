@@ -428,8 +428,35 @@ Mitigations:
   `Projects\<name>-<timestamp>.bundle` before destroying anything, and refuses
   to proceed if that backup cannot be produced. Opt out per project with
   `-NoBackup` - see below.
-- Browse from Windows any time at `\\wsl.localhost\agentdev-<name>\home\dev\workspace`.
 - Open in VS Code with `code --remote wsl+agentdev-<name> /home/dev/workspace`.
+
+**`\\wsl.localhost\agentdev-<name>\` does not work**, even while the instance is
+running. The same `wsl.conf` that provides the isolation also stops WSL serving
+the instance's filesystem to Windows - `\\wsl.localhost\Ubuntu` resolves, an
+`agentdev-` instance does not. This was tested, not assumed. It is a fair trade:
+the share would be a path back into an instance that is meant to be sealed.
+
+### Moving files in and out
+
+Windows cannot browse the instance, and the instance cannot see `C:\` - but
+`wsl.exe` bridges the two from the Windows side, which is the direction that
+stays safe. Copy a file **in**:
+
+```powershell
+cmd /c "wsl.exe -d agentdev-<name> -u dev -- bash -c ""cat > /home/dev/workspace/file.zip"" < ""C:\path\to\file.zip"""
+```
+
+and back **out**:
+
+```powershell
+cmd /c "wsl.exe -d agentdev-<name> -u dev -- bash -c ""cat /home/dev/workspace/file.zip"" > ""C:\path\to\file.zip"""
+```
+
+The `cmd /c` wrapper is not decoration - PowerShell has no input redirection
+operator, so `<` has to come from `cmd`. This streams byte-for-byte with no
+base64 inflation and no size ceiling; a transferred archive hashes identically on
+both sides and arrives owned by `dev`. For a directory, pipe a tar instead of
+copying file by file.
 
 ### Destroying a project
 
