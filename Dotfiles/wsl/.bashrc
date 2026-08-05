@@ -7,6 +7,26 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
 
+# Android SDK, for the instances that actually build Android. The SDK is ~10 GB
+# and is NOT in the base image, so this is a no-op almost everywhere - but when
+# it is present the tools have to be on PATH for non-interactive shells too,
+# since gradle and expo are usually invoked by an agent rather than a person.
+#
+# The emulator runs in-instance rather than on Windows: WSL2 exposes /dev/kvm
+# for acceleration and WSLg displays the window on the Windows desktop, which
+# keeps source, Metro, adb and the device on one side of the boundary.
+if [ -d "$HOME/Android/Sdk" ]; then
+    export ANDROID_HOME="$HOME/Android/Sdk"
+    export ANDROID_SDK_ROOT="$ANDROID_HOME"
+    [ -d /usr/lib/jvm/java-17-openjdk-amd64 ] && \
+        export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+    for d in "$ANDROID_HOME/cmdline-tools/latest/bin" "$ANDROID_HOME/platform-tools" \
+             "$ANDROID_HOME/emulator"; do
+        [ -d "$d" ] && case ":$PATH:" in *":$d:"*) ;; *) PATH="$d:$PATH" ;; esac
+    done
+    export PATH
+fi
+
 # Deliberately absent: OP_SERVICE_ACCOUNT_TOKEN.
 #
 # Secrets reach a process through `op-env -- <command>`, which resolves them as

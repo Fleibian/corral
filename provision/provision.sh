@@ -130,6 +130,21 @@ usermod -aG docker "$DEV_USER"
 systemctl enable docker >/dev/null 2>&1 || true
 ok "docker $(docker --version 2>/dev/null | head -1 || echo '?')"
 
+# KVM access, so an Android emulator can run *inside* an instance rather than on
+# Windows. WSL2 has nested virtualisation and exposes /dev/kvm, and WSLg puts
+# the emulator window on the Windows desktop - which means source, Metro,
+# emulator, adb and any UI test runner all sit on the same side of the boundary.
+# The alternative (emulator on Windows) needs `adb reverse` and cannot read the
+# project at all, since the isolation settings also block \\wsl.localhost.
+#
+# /dev/kvm is root:kvm 0660, so membership is the whole requirement. The group
+# is created by udev at boot and may not exist while the image is being built,
+# hence groupadd -f first. The SDK itself is deliberately NOT installed here -
+# it is ~10 GB and belongs only in the instances that actually build Android.
+groupadd -f kvm
+usermod -aG kvm "$DEV_USER"
+ok "kvm group (emulator can run in-instance; SDK installed per project)"
+
 # -------------------------------------------------------------------- agents
 
 log "Coding agents"
