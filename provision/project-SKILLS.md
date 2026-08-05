@@ -1,5 +1,29 @@
 # Skills to install
 
+## Already installed: `onepassword`
+
+Nothing to do for this one. It is deployed into every project automatically and
+linked into all three agents, and it explains how to use secrets here - run
+anything needing a credential as `op-env -- <command>`, and `op-env --names` to
+see what is available.
+
+Before an agent can use secrets, this project needs to be pointed at a
+1Password Environment, once:
+
+```bash
+op-login <environment-id>     # ID from the 1Password app:
+                              # Developer > View Environments >
+                              # Manage environment > Copy environment ID
+op-env --status               # confirm, and list the variable names
+```
+
+To change what the skill says, edit
+`C:\AgentDev\Dotfiles\wsl\.agents\skills\onepassword\SKILL.md` on the host. The
+next `corral new` picks it up - no base-image rebuild needed. Existing projects
+keep the copy they were created with.
+
+## The rest, installed by hand
+
 These are not installed automatically - run them here, in this project, and
 pick the agents you want when prompted.
 

@@ -82,6 +82,26 @@ set -e
 sudo find /mnt -mindepth 1 -maxdepth 1 -type d -empty \
      -not -name wsl -not -name wslg -delete 2>/dev/null || true
 
+# Refresh the onepassword skill from the host's copy. The base image ships one
+# already, so a project is never without it - but an image is a snapshot, and
+# without this an edit to the skill would not reach new projects until the next
+# 25-minute `corral build`. Doing it at creation time makes the host copy
+# authoritative and the rebuild optional.
+#
+# The relative symlinks are exactly the layout the `skills` CLI produces, so a
+# hand-placed skill and an installed one are indistinguishable and a later
+# `skills` run has nothing to trip over.
+if [ -f /etc/agentdev/onepassword-SKILL.md ]; then
+    mkdir -p "$HOME/.agents/skills/onepassword"
+    cp /etc/agentdev/onepassword-SKILL.md "$HOME/.agents/skills/onepassword/SKILL.md"
+    chmod 0644 "$HOME/.agents/skills/onepassword/SKILL.md"
+    for pair in ".claude/skills:../.." ".codex/skills:../.." ".pi/agent/skills:../../.."; do
+        dir="${pair%%:*}"; rel="${pair#*:}"
+        mkdir -p "$HOME/$dir"
+        ln -sfn "$rel/.agents/skills/onepassword" "$HOME/$dir/onepassword"
+    done
+fi
+
 cd ~/workspace
 if [ ! -d .git ]; then
     git init -q
@@ -130,6 +150,17 @@ fi
 foreach ($template in 'project-AGENTS.md', 'project-SKILLS.md') {
     Write-DistroFile -DistroName $distro -Path "/etc/agentdev/$template" `
                      -Content (Get-Content (Join-Path $AgentDev.Provision $template) -Raw)
+}
+
+# Staged for the seed script above to install. Sourced from the dotfiles tree so
+# the host copy is authoritative: editing the skill reaches the next new project
+# without a base-image rebuild.
+$skillSource = Join-Path $AgentDev.Dotfiles 'wsl\.agents\skills\onepassword\SKILL.md'
+if (Test-Path $skillSource) {
+    Write-DistroFile -DistroName $distro -Path '/etc/agentdev/onepassword-SKILL.md' `
+                     -Content (Get-Content $skillSource -Raw)
+} else {
+    Write-Warning "No onepassword skill at $skillSource - the project will use the base image's copy."
 }
 Invoke-InDistro -DistroName $distro -Command $seed | Out-Null
 Write-Host '  workspace  ~/workspace initialised with git' -ForegroundColor Gray

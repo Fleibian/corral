@@ -95,7 +95,9 @@ C:\AgentDev\
 └── Dotfiles\
     ├── AGENTS.md         single source of truth for agent instructions
     └── wsl\              mirrors the Linux home directory
-        └── .agents\skills\onepassword\   the secrets skill, shared by all three agents
+        └── .agents\skills\onepassword\   the secrets skill; deployed to each new
+                                          project by New-Project.ps1, so edits
+                                          need no base-image rebuild
 ```
 
 `Dotfiles\wsl\` mirrors `$HOME`, so provisioning deploys it with one recursive
@@ -188,10 +190,16 @@ Firstmate can also hold several clones under `projects/` and span them, but that
 capability simply goes unused here - instances are isolated, so a firstmate in
 one cannot reach another project.
 
-**Prerequisites are already in the image**: herdr 0.7.5 (which firstmate lists
-as a verified protocol-14 backend), `jq`, `python3`, `git`, `gh`, and the three
-agent harnesses. `gh auth login` is still needed per instance before its
-PR-shipping path works - see [Pushing to GitHub](#pushing-to-github).
+**Prerequisites are already in the image**: herdr, `jq`, `python3`, `git`, `gh`,
+and the three agent harnesses. `gh auth login` is still needed per instance
+before its PR-shipping path works - see [Pushing to GitHub](#pushing-to-github).
+
+The herdr installer always fetches the latest release, so the version moves with
+each `corral build` - it is 0.8.0 as of the most recent one, up from the 0.7.5
+that firstmate documents as its verified protocol-14 backend. Nothing has
+misbehaved, but if a firstmate crew ever fails to spawn panes, that gap is the
+first thing to suspect, and `FM_BACKEND=tmux` switches to firstmate's reference
+path without installing anything.
 
 **Backend**: firstmate drives a multiplexer to spawn its crew. `FM_BACKEND` is
 deliberately left unset so it auto-detects - herdr in a normal session, and
@@ -282,10 +290,11 @@ This is a deliberate choice, not a limitation - automating it worked, but
 installing by hand keeps project creation at ~40s with no network dependency,
 and lets you pick skills per project.
 
-The exception is `onepassword`, which is shipped in the image. The rule above is
-about optional, network-fetched, per-project picks; that skill is local, adds no
-round-trip, and describes how this instance handles secrets - the same category
-as `AGENTS.md`. See [Secrets](#secrets).
+The exception is `onepassword`, which every project gets automatically. The rule
+above is about optional, network-fetched, per-project picks; that skill is local,
+adds no round-trip, and describes how this instance handles secrets - the same
+category as `AGENTS.md`. `New-Project.ps1` deploys it from the host at creation,
+so editing it reaches new projects without a rebuild. See [Secrets](#secrets).
 
 To change the list, edit `provision\project-SKILLS.md`. New projects pick it
 up; existing ones keep the copy they were created with.
@@ -597,6 +606,12 @@ stays out of `~/.bash_history` and `/proc/*/cmdline`; it is piped straight to a
 root helper that verifies it against the Environment before storing. A bad paste
 fails immediately rather than breaking the agent's first command.
 
+**Rotating a token breaks every instance holding the old one.** Deleting or
+replacing a service account makes the stored token return
+`(403) Service Account Deleted`, and `op-env` stops working until `op-login` is
+run again with the new token. There is no way for an agent to recover from this
+on its own, which is why the skill tells it to ask rather than improvise.
+
 Pasting the token **is** the act of choosing which environment a project gets -
 scope is enforced by 1Password on the server, not by anything in the instance an
 agent could edit. Like `gh auth login`, it is once per instance, and rebuilding
@@ -613,8 +628,25 @@ It also tells an agent that cannot reach a secret to **ask you to run
 `op-login`** - the same way it is told to ask you to run `gh auth login` - rather
 than hardcoding a credential or quietly disabling the code path that needed it.
 
-Edit it at `Dotfiles\wsl\.agents\skills\onepassword\SKILL.md` and rebuild the
-base image to propagate.
+Edit it at `Dotfiles\wsl\.agents\skills\onepassword\SKILL.md`. **The next
+`corral new` picks it up - no base-image rebuild required.** `New-Project.ps1`
+copies the host's version into each project at creation and relinks it for all
+three agents, so the host copy is authoritative and the image copy is only a
+fallback for a project created without it.
+
+That is deliberate. The image is a snapshot, so a skill baked into it goes stale
+the moment you edit the source, and a 25-minute rebuild to correct a sentence is
+a poor trade. Deploying at creation time keeps the skill zero-setup - it is
+present the moment a project opens, with nothing to install by hand - while
+making edits land immediately. Existing projects keep the copy they were created
+with, as with every other template here.
+
+One trap worth recording, because it cost a debugging round: **the YAML
+frontmatter is parsed strictly by some agents and leniently by others.** A bare
+`Triggers:` inside the unquoted `description` value made pi refuse the skill with
+`Nested mappings are not allowed in compact mappings`, while other agents
+accepted it. The description is now quoted and contains no bare `: `. If you
+edit it, keep it that way.
 
 
 ## One AGENTS.md, three agents
