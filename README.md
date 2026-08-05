@@ -150,6 +150,7 @@ present the moment the instance opens - nothing installs on first use.
 | **Shell** | `bash` with a `starship` prompt, `ll`/`gs` aliases, `ff` fuzzy directory jump, `dockerup` |
 | **Version control** | `git`, `gh` (GitHub CLI, for pushing) |
 | **Secrets** | `op-env` injects a 1Password Environment into a command; agents use secrets without seeing values - see [Secrets](#secrets) |
+| **Android** | `android-setup` installs the SDK and a KVM-accelerated emulator into a project on demand - see [Android](#android-emulator-and-devices) |
 | **Node** | `nvm` with the current LTS and `corepack`, so a project can pin its own version |
 | **Containers** | Docker engine with `compose` and `buildx`, its own daemon per instance (`dockerup` starts it) |
 | **Python** | `python3` with `venv` and `pip` |
@@ -165,7 +166,8 @@ expected rather than discouraged.
 
 **Deliberately not included:** the Android SDK and a JDK. They would add roughly
 8-10 GB to *every* project, and neither Expo Go nor EAS cloud builds need them.
-Add them to the one instance that genuinely does local Android builds.
+Run `android-setup` in the one instance that genuinely does local Android
+builds - see [Android](#android-emulator-and-devices).
 
 Also absent by design: your SSH keys, your Windows PATH, and any access to the
 host filesystem. See [Isolation](#isolation).
@@ -706,6 +708,56 @@ Note that `.wslconfig` is global - it applies to your existing `Ubuntu` and
 `docker-desktop` distros too.
 
 Start Metro as usual with `npx expo start`.
+
+## Android: emulator and devices
+
+```bash
+android-setup            # once per project that needs Android
+emulator -avd <name> &   # window appears on the Windows desktop
+npx expo run:android
+```
+
+`android-setup` installs JDK 17, the Android SDK, platform-tools, the emulator
+and an API 36 system image, then creates an AVD named after the project and
+verifies KVM is really in use. `android-setup --check` reports what is present
+without installing. It takes a few minutes and about 6 GB.
+
+**The emulator runs inside the instance, not on Windows.** WSL2 exposes
+`/dev/kvm` for hardware acceleration and WSLg puts the emulator window on the
+Windows desktop, so source, Metro, `adb` and the device all stay on the same
+side of the boundary. Measured in a real instance: `KVM (version 12) is
+installed and usable`, and a Pixel 7 API 36 AVD cold-booting in **45 seconds**.
+Software emulation takes minutes, so the acceleration is genuine.
+
+The alternative - Android Studio and its emulator on Windows, connected with
+`adb reverse` - is the usual WSL advice and is *worse here*, for two reasons
+specific to this setup:
+
+- Windows cannot read the project at all, since the isolation settings block
+  `\\wsl.localhost`. Anything that needs repo files (Maestro flows, Gradle,
+  `expo run:android`) cannot run on the Windows side.
+- Windows resolves `localhost` to IPv6 `::1` first, and Metro binds IPv4 only,
+  so `http://localhost:8081` from Windows **hangs** rather than failing. This is
+  the same trap as the OAuth callback above. Verified: `127.0.0.1:8081` returns
+  in 111 ms, `localhost:8081` times out.
+
+Keeping the emulator in-instance sidesteps both.
+
+**The SDK is deliberately not in the base image.** At ~6-10 GB it would be
+carried by every project to benefit the few that build Android - the same
+reasoning as [What's included](#whats-included). What the image *does* carry is
+`android-setup` (a few KB), `kvm` group membership, and a conditional block in
+`.bashrc` that sets `ANDROID_HOME` and PATH only when an SDK is actually
+present, above the interactive guard so agent-run Gradle works.
+
+**Physical devices.** Use wireless debugging rather than USB - WSL2 has no USB
+passthrough without `usbipd-win`, but mirrored networking puts the instance on
+your LAN, so `adb pair` and `adb connect <phone-ip>:5555` work from inside the
+instance with no Windows involvement.
+
+**iOS cannot be run locally at all.** Neither Windows nor WSL can host the iOS
+Simulator, and building for iOS needs macOS. Use an EAS development build on a
+registered iPhone, and EAS Workflows or a macOS runner for automation.
 
 ## Logging an agent in
 
