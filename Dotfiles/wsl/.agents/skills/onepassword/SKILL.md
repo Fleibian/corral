@@ -1,6 +1,6 @@
 ---
 name: onepassword
-description: Use secrets and environment variables from 1Password inside an agent workspace instance, via `op-env`, without ever seeing their values. Use whenever a task needs an API key, token, password, connection string or `.env` file - or when a command fails for want of a credential. Triggers: secret, credential, API key, token, password, .env, environment variable, dotenv, op-env, op run, 1Password, environment, vault.
+description: "Use secrets and environment variables from 1Password inside an agent workspace instance, via `op-env`, without ever seeing their values. Use whenever a task needs an API key, token, password, connection string or `.env` file - or when a command fails for want of a credential. Triggers - secret, credential, API key, token, password, .env, environment variable, dotenv, op-env, op run, 1Password, environment, vault."
 ---
 
 # Secrets in this workspace
@@ -106,6 +106,8 @@ trying to configure a 1Password MCP server.
 | Symptom | Cause and fix |
 |---|---|
 | `op-env: not configured` | No token stored. Ask the user to run `op-login`. |
+| `(403) ... Service Account Deleted` | The token was rotated or its service account removed. The stored one is dead. Ask the user to re-run `op-login` with the new token - you cannot fix this yourself. |
+| `(403) Forbidden` on a specific variable | The service account's grant does not cover it. Ask the user; do not retry in a loop, it will only burn rate limit. |
 | `no account found for filter` | You called `op` directly. Use `op-env` instead. |
 | Variable missing inside the command | Not in the Environment. Check `op-env --names`; if absent, ask the user to add it in the 1Password app. |
 | `<concealed by 1Password>` in output | Working as intended - `op run` masks secret values in output. Not an error. |
