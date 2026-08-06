@@ -4,6 +4,33 @@ Isolated, disposable development environments for AI coding agents on Windows.
 Each project gets its own WSL2 instance that can see that project and nothing
 else on the machine.
 
+## When to use this, and when not to
+
+Corral buys containment. That is worth paying for when code might do something
+you did not ask for, and not worth paying for otherwise.
+
+| | |
+|---|---|
+| **Use corral** | untrusted or unfamiliar dependencies, throwaway experiments, anything you would rather run behind a wall than trust |
+| **Use Windows natively** | mobile and app development - see [Templapp](https://github.com/Fleibian/Templapp) |
+
+The split is not preference. Three things make an instance the wrong home for
+an app project, all of them measured rather than assumed:
+
+- **The Android emulator runs under nested virtualisation** inside an instance
+  and says so itself: *"not recommended... typically the performance is not
+  quite good"*. Natively it uses WHPX with host GPU passthrough.
+- **Windows cannot read a project inside an instance.** The same `wsl.conf`
+  that disables automount and interop also stops WSL serving the filesystem, so
+  `\\wsl.localhost\agentdev-<name>\` does not resolve and no host tooling -
+  Android Studio, a profiler, a device manager - can reach the code.
+- **The host toolchain gets duplicated, worse.** A machine with Android Studio
+  and its SDK already installed cannot share any of it with an instance.
+
+What you give up on Windows is real: permission rules are pattern matching, not
+a sandbox, and they will not stop a postinstall script running with your user
+account. That is precisely the case corral still exists for.
+
 ## Usage
 
 ```powershell
